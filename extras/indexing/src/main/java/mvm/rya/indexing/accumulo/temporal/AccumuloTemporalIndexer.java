@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -399,6 +400,10 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
             return getContextIteratorWrapper(scanner, constraints.getContext());
     }
 
+    // XXX: Adding Debugging Statement
+    private static AtomicInteger QUERY_BEFORE_COUNT = new AtomicInteger();
+    private static AtomicInteger QUERY_AFTER_COUNT = new AtomicInteger();
+
     /**
      * get statements where the db row ID is BEFORE the given queryInstant.
      */
@@ -421,6 +426,7 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
                 return new Range(start, true, endAt, false);
             }
         };
+        System.out.println("xx Query Instant Before Calls :: " + QUERY_BEFORE_COUNT.incrementAndGet());
         final ScannerBase scanner = query.doQuery(queryInstant, constraints);
         return getContextIteratorWrapper(scanner, constraints.getContext());
     }
@@ -444,6 +450,7 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
                 return new Range(start, true, endAt, false);
             }
         };
+        System.out.println("xx Query Instant After Calls :: " + QUERY_AFTER_COUNT.incrementAndGet());
         final ScannerBase scanner = query.doQuery(queryInstant, constraints);
         return getContextIteratorWrapper(scanner, constraints.getContext());
     }
@@ -539,6 +546,7 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
         return getIteratorWrapper(scanner);
     }
 
+    
     /**
      * find intervals stored in the repository before the given Interval. Find interval endings that are
      * before the given beginning.
