@@ -27,7 +27,15 @@ import org.openrdf.model.Resource;
 import org.openrdf.model.URI;
 
 public class StatementConstraints {
-	private Resource context = null;
+	/* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        return "StatementConstraints [context=" + context + ", subject=" + subject + ", predicates=" + predicates + "]";
+    }
+
+    private Resource context = null;
 	private Resource subject = null;
 	private Set<URI> predicates = null;
 

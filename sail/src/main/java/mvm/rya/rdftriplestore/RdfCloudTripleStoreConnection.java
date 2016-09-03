@@ -23,17 +23,23 @@ package mvm.rya.rdftriplestore;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static mvm.rya.api.RdfCloudTripleStoreConstants.RANGE;
+
 import info.aduna.iteration.CloseableIteration;
 
 import java.lang.reflect.Constructor;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import mvm.rya.api.RdfCloudTripleStoreConfiguration;
 import mvm.rya.api.RdfCloudTripleStoreConstants;
+import mvm.rya.api.domain.RangeValue;
 import mvm.rya.api.domain.RyaStatement;
 import mvm.rya.api.domain.RyaURI;
 import mvm.rya.api.persist.RdfEvalStatsDAO;
@@ -67,15 +73,23 @@ import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
 import org.openrdf.model.ValueFactory;
+import org.openrdf.model.impl.BooleanLiteralImpl;
 import org.openrdf.model.impl.ContextStatementImpl;
 import org.openrdf.model.impl.StatementImpl;
 import org.openrdf.query.Binding;
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.Dataset;
 import org.openrdf.query.QueryEvaluationException;
+import org.openrdf.query.algebra.BinaryTupleOperator;
+import org.openrdf.query.algebra.Filter;
+import org.openrdf.query.algebra.FunctionCall;
+import org.openrdf.query.algebra.QueryModelNode;
 import org.openrdf.query.algebra.QueryRoot;
 import org.openrdf.query.algebra.StatementPattern;
 import org.openrdf.query.algebra.TupleExpr;
+import org.openrdf.query.algebra.UnaryTupleOperator;
+import org.openrdf.query.algebra.ValueConstant;
+import org.openrdf.query.algebra.ValueExpr;
 import org.openrdf.query.algebra.Var;
 import org.openrdf.query.algebra.evaluation.EvaluationStrategy;
 import org.openrdf.query.algebra.evaluation.QueryBindingSet;
@@ -92,9 +106,12 @@ import org.openrdf.query.algebra.evaluation.impl.IterativeEvaluationOptimizer;
 import org.openrdf.query.algebra.evaluation.impl.OrderLimitOptimizer;
 import org.openrdf.query.algebra.evaluation.impl.QueryModelNormalizer;
 import org.openrdf.query.algebra.evaluation.impl.SameTermFilterOptimizer;
+import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
 import org.openrdf.query.impl.EmptyBindingSet;
 import org.openrdf.sail.SailException;
 import org.openrdf.sail.helpers.SailConnectionBase;
+
+import com.google.common.base.Strings;
 
 public class RdfCloudTripleStoreConnection extends SailConnectionBase {
 
@@ -218,7 +235,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
 			}
         }
         tupleExpr = tupleExpr.clone();
-
+        reportCrossProduct(tupleExpr,0);
         RdfCloudTripleStoreConfiguration queryConf = store.getConf().clone();
         if (bindings != null) {
             Binding dispPlan = bindings.getBinding(RdfCloudTripleStoreConfiguration.CONF_QUERYPLAN_FLAG);
@@ -297,45 +314,60 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                     new StoreTripleSource(queryConf), inferenceEngine, dataset, queryConf);
             
                 (new BindingAssigner()).optimize(tupleExpr, dataset, bindings);
-                (new ConstantOptimizer(strategy)).optimize(tupleExpr, dataset,
-                        bindings);
-                (new CompareOptimizer()).optimize(tupleExpr, dataset, bindings);
-                (new ConjunctiveConstraintSplitter()).optimize(tupleExpr, dataset,
-                        bindings);
-                (new DisjunctiveConstraintOptimizer()).optimize(tupleExpr, dataset,
-                        bindings);
-                (new SameTermFilterOptimizer()).optimize(tupleExpr, dataset,
-                        bindings);
-                (new QueryModelNormalizer()).optimize(tupleExpr, dataset, bindings);
-    
-                (new IterativeEvaluationOptimizer()).optimize(tupleExpr, dataset,
-                        bindings);
+                reportCrossProduct(tupleExpr,0);
 
-            if (!optimizers.isEmpty()) {
-                for (Class<QueryOptimizer> optclz : optimizers) {
-                    QueryOptimizer result = null;
-                    try {
-                        Constructor<QueryOptimizer> meth = optclz.getDeclaredConstructor(new Class[] {});
-                        result = meth.newInstance();
-                    } catch (Exception e) {
-                    }
+                (new ConstantOptimizer(strategy)).optimize(tupleExpr, dataset, bindings);
+                reportCrossProduct(tupleExpr,0);
+                
+                (new CompareOptimizer()).optimize(tupleExpr, dataset, bindings);
+                reportCrossProduct(tupleExpr,0);
+
+                (new ConjunctiveConstraintSplitter()).optimize(tupleExpr, dataset,bindings);
+                reportCrossProduct(tupleExpr,0);
+
+                (new DisjunctiveConstraintOptimizer()).optimize(tupleExpr, dataset,bindings);
+                reportCrossProduct(tupleExpr,0);
+
+                (new SameTermFilterOptimizer()).optimize(tupleExpr, dataset,bindings);
+                reportCrossProduct(tupleExpr,0);
+
+                (new QueryModelNormalizer()).optimize(tupleExpr, dataset, bindings);
+                reportCrossProduct(tupleExpr,0);
+
+    
+                (new IterativeEvaluationOptimizer()).optimize(tupleExpr, dataset,bindings);
+                reportCrossProduct(tupleExpr,0);
+
+
+            for (Class<QueryOptimizer> optclz : optimizers) {
+                QueryOptimizer result = null;
+                try {
+                    Constructor<QueryOptimizer> meth = optclz.getDeclaredConstructor(new Class[] {});
+                    result = meth.newInstance();
+                } catch (Exception e) {
+                }
+                if (result == null) {
                     try {
                         Constructor<QueryOptimizer> meth = optclz.getDeclaredConstructor(EvaluationStrategy.class);
                         result = meth.newInstance(strategy);
                     } catch (Exception e) {
                     }
-                    if (result == null) {
-                        throw new NoSuchMethodException("Could not find valid constructor for " + optclz.getName());
-                    }
-                    if (result instanceof Configurable) {
-                        ((Configurable) result).setConf(conf);
-                    }
-                    result.optimize(tupleExpr, dataset, bindings);
                 }
+                if (result == null) {
+                    throw new NoSuchMethodException("Could not find valid constructor for " + optclz.getName());
+                }
+                if (result instanceof Configurable) {
+                    ((Configurable) result).setConf(conf);
+                }
+                result.optimize(tupleExpr, dataset, bindings);
             }
 
             (new FilterOptimizer()).optimize(tupleExpr, dataset, bindings);
+            System.out.println("Check crossproduct after FilterOptimizer.");reportCrossProduct(tupleExpr,0);
+            
             (new OrderLimitOptimizer()).optimize(tupleExpr, dataset, bindings);
+            System.out.println("Check crossproduct after OrderLimitOptimizer.");reportCrossProduct(tupleExpr,0);
+
             
             logger.trace("Optimized query model:\n{}", tupleExpr.toString());
 
@@ -352,15 +384,25 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                System.out.println("Check crossproduct after inferenceEngine.");reportCrossProduct(tupleExpr,0);
             }
             if (queryConf.isPerformant()) {
                 tupleExpr.visit(new SeparateFilterJoinsVisitor());
 //                tupleExpr.visit(new FilterTimeIndexVisitor(queryConf));
 //                tupleExpr.visit(new PartitionFilterTimeIndexVisitor(queryConf));
+                System.out.println("Check crossproduct after isPerformant SeparateFilterJoinsVisitor.");
+                reportCrossProduct(tupleExpr,0);
             }
             FilterRangeVisitor rangeVisitor = new FilterRangeVisitor(queryConf);
             tupleExpr.visit(rangeVisitor);
+            System.out.println("Check crossproduct after rangeVistor 1.");
+            reportCrossProduct(tupleExpr,0);
+
             tupleExpr.visit(rangeVisitor); //this has to be done twice to get replace the statementpatterns with the right ranges
+            System.out.println("Check crossproduct after rangeVistor 2.");
+            reportCrossProduct(tupleExpr,0);
+
+            
             EvaluationStatistics stats = null;
             if (!queryConf.isUseStats() && queryConf.isPerformant() || rdfEvalStatsDAO == null) {
                 stats = new DefaultStatistics();
@@ -373,16 +415,16 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                     stats = new RdfCloudTripleStoreEvaluationStatistics(queryConf, rdfEvalStatsDAO);
                 }
             }
+
             if (stats != null) {
-
                 if (stats instanceof RdfCloudTripleStoreSelectivityEvaluationStatistics) {
-
-                    (new QueryJoinSelectOptimizer((RdfCloudTripleStoreSelectivityEvaluationStatistics) stats,
-                            selectEvalDAO)).optimize(tupleExpr, dataset, bindings);
+                    (new QueryJoinSelectOptimizer((RdfCloudTripleStoreSelectivityEvaluationStatistics) stats, selectEvalDAO)).optimize(tupleExpr, dataset, bindings);
+                    System.out.println("Check crossproduct after QueryJoinSelectOptimizer.");
+                    reportCrossProduct(tupleExpr,0);
                 } else {
-
-                    (new mvm.rya.rdftriplestore.evaluation.QueryJoinOptimizer(stats)).optimize(tupleExpr, dataset,
-                            bindings); // TODO: Make pluggable
+                    (new mvm.rya.rdftriplestore.evaluation.QueryJoinOptimizer(stats)).optimize(tupleExpr, dataset, bindings); // TODO: Make pluggable
+                    System.out.println("Check crossproduct after QueryJoinOptimizer.");
+                    reportCrossProduct(tupleExpr,0);
                 }
             }
 
@@ -417,6 +459,114 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
         } catch (Exception e) {
             throw new SailException(e);
         }
+    }
+
+
+    /**
+     * Report if the query plan has Cross product issues.
+     * This is the non-visitor version. 
+     * @param tupleExpr root of the query model
+     * @param depth current recursive depth, start with 0.
+     */
+    public static void reportCrossProductOld(TupleExpr tupleExpr, int depth) {
+        depth++;
+        if (tupleExpr instanceof BinaryTupleOperator) {
+            BinaryTupleOperator join = (BinaryTupleOperator)tupleExpr;
+
+            reportCrossProduct(join.getLeftArg(), depth);
+            reportCrossProduct(join.getRightArg(), depth);
+
+            Set<String> intersection;
+            Set<String> leftBindings = join.getLeftArg().getBindingNames();
+            Set<String> rightBindings = join.getRightArg().getBindingNames();
+            intersection = intersection(leftBindings, rightBindings);
+            if (intersection.isEmpty()) {
+                reportNode(tupleExpr, depth, "\n!!!Crossproduct here!! No common binding names:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
+            } else {
+                reportNode(tupleExpr, depth, "\n"+indent(depth)+intersection+" are common.");
+            }
+        }
+        else if (tupleExpr instanceof UnaryTupleOperator) {
+            reportCrossProduct(((UnaryTupleOperator)tupleExpr).getArg(), depth-1);
+            reportNode(tupleExpr, depth, "");
+        } else {
+            // leaf node, no children.
+            reportNode(tupleExpr, depth, "");
+        }
+    }
+
+    private static void reportNode(TupleExpr tupleExpr, int depth, String message) {
+        System.out.println(indent(depth) 
+                + tupleExpr.getClass().getSimpleName() //
+                + "    " //
+                + tupleExpr.getBindingNames().toString().replaceAll("http.*?(?=[]#,])", "...") //
+                + message);
+    }
+    /**
+     * Report if the query plan has Cross product issues.
+     * This is the visitor pattern version. 
+     * @param tupleExpr root of the query model
+     * @param depth current recursive depth, start with 0.  -- not used
+     */
+    private static void reportCrossProduct(TupleExpr tupleExpr,  int depth) {
+        tupleExpr.visit(new CrossProductVisitor()); 
+    }
+
+    private static class CrossProductVisitor extends QueryModelVisitorBase<RuntimeException> {
+//        public CrossProductVisitor() {
+//        }
+        private int depth=0; // this will fail if object is shared between threads.
+        @Override
+        public void meetBinaryTupleOperator(BinaryTupleOperator tupleExpr) throws RuntimeException {
+            depth++;
+            BinaryTupleOperator join = (BinaryTupleOperator)tupleExpr;
+            join.getLeftArg().visit(this);
+            join.getRightArg().visit(this);
+            Set<String> intersection;
+            Set<String> leftBindings = join.getLeftArg().getBindingNames();
+            Set<String> rightBindings = join.getRightArg().getBindingNames();
+            intersection = intersection(leftBindings, rightBindings);
+            if (intersection.isEmpty()) {
+                reportNode(tupleExpr, depth, "\n!!!Crossproduct here!! No common bindings:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
+            } else {
+                reportNode(tupleExpr, depth, "\n"+indent(depth)+intersection+" are common.");
+            }
+            depth--;
+        }
+
+        @Override
+        public void meetUnaryTupleOperator(UnaryTupleOperator node) throws RuntimeException {
+            node.getArg().visit(this);
+            reportNode(node, depth, "");
+        }
+        @Override
+        public void meetOther(QueryModelNode tupleExpr) throws RuntimeException {
+            if (tupleExpr instanceof TupleExpr)
+                reportNode((TupleExpr)tupleExpr, depth, "");
+            else 
+                System.out.println(indent(depth) + tupleExpr.getClass().getSimpleName() ); 
+        }
+    }
+    /**
+     * @param level
+     * @return
+     */
+    private static String indent(int level) {
+        return "n"+Strings.repeat(".   ", level);
+    }
+
+    /**
+     * @param leftBindings
+     * @param rightBindings
+     * @return
+     */
+    private static Set<String> intersection(Set<String> leftBindings, Set<String> rightBindings) {
+        Set<String> intersection;
+        {
+            intersection = new LinkedHashSet<String>(leftBindings);
+            intersection.retainAll(rightBindings);
+        }
+        return intersection;
     }
 
     @Override

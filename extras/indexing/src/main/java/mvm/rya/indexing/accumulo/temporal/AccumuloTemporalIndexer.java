@@ -422,7 +422,8 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
                     start = new Text(KeyParts.HASH_PREFIX_FOLLOWING);
                 }
                 final Text endAt = keyParts.getQueryKey();                   // <-- end specific logic
-                //System.out.println("Scanning queryInstantBeforeInstant: from:" + KeyParts.toHumanString(start) + " up to:" + KeyParts.toHumanString(endAt));
+                System.out.println("Scanning queryInstantBeforeInstant: from:" + KeyParts.toHumanString(start) + " up to:" + KeyParts.toHumanString(endAt));
+                System.out.println("   queryInstantBeforeInstant:constraints:" + constraints);
                 return new Range(start, true, endAt, false);
             }
         };
@@ -446,7 +447,8 @@ public class AccumuloTemporalIndexer extends AbstractAccumuloIndexer implements 
                 if (keyParts.constraintPrefix != null ) {
                     endAt = Range.followingPrefix(keyParts.constraintPrefix);
                 }
-                //System.out.println("Scanning queryInstantAfterInstant from after:" + KeyParts.toHumanString(start) + " up to:" + KeyParts.toHumanString(endAt));
+                System.out.println("Scanning queryInstantAfterInstant from after:" + KeyParts.toHumanString(start) + " up to:" + KeyParts.toHumanString(endAt));
+                System.out.println("        queryInstantAfterInstant constraints:" + constraints);
                 return new Range(start, true, endAt, false);
             }
         };
