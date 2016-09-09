@@ -23,13 +23,9 @@ package mvm.rya.rdftriplestore;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static mvm.rya.api.RdfCloudTripleStoreConstants.RANGE;
-
-import info.aduna.iteration.CloseableIteration;
 
 import java.lang.reflect.Constructor;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,9 +33,51 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import org.apache.hadoop.conf.Configurable;
+import org.openrdf.model.Namespace;
+import org.openrdf.model.Resource;
+import org.openrdf.model.Statement;
+import org.openrdf.model.URI;
+import org.openrdf.model.Value;
+import org.openrdf.model.ValueFactory;
+import org.openrdf.model.impl.ContextStatementImpl;
+import org.openrdf.model.impl.StatementImpl;
+import org.openrdf.query.Binding;
+import org.openrdf.query.BindingSet;
+import org.openrdf.query.Dataset;
+import org.openrdf.query.QueryEvaluationException;
+import org.openrdf.query.algebra.BinaryTupleOperator;
+import org.openrdf.query.algebra.QueryModelNode;
+import org.openrdf.query.algebra.QueryRoot;
+import org.openrdf.query.algebra.StatementPattern;
+import org.openrdf.query.algebra.TupleExpr;
+import org.openrdf.query.algebra.UnaryTupleOperator;
+import org.openrdf.query.algebra.Var;
+import org.openrdf.query.algebra.evaluation.EvaluationStrategy;
+import org.openrdf.query.algebra.evaluation.QueryBindingSet;
+import org.openrdf.query.algebra.evaluation.QueryOptimizer;
+import org.openrdf.query.algebra.evaluation.TripleSource;
+import org.openrdf.query.algebra.evaluation.impl.BindingAssigner;
+import org.openrdf.query.algebra.evaluation.impl.CompareOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.ConjunctiveConstraintSplitter;
+import org.openrdf.query.algebra.evaluation.impl.ConstantOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.DisjunctiveConstraintOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.EvaluationStatistics;
+import org.openrdf.query.algebra.evaluation.impl.FilterOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.IterativeEvaluationOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.OrderLimitOptimizer;
+import org.openrdf.query.algebra.evaluation.impl.QueryModelNormalizer;
+import org.openrdf.query.algebra.evaluation.impl.SameTermFilterOptimizer;
+import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
+import org.openrdf.query.impl.EmptyBindingSet;
+import org.openrdf.sail.SailException;
+import org.openrdf.sail.helpers.SailConnectionBase;
+
+import com.google.common.base.Strings;
+
+import info.aduna.iteration.CloseableIteration;
 import mvm.rya.api.RdfCloudTripleStoreConfiguration;
 import mvm.rya.api.RdfCloudTripleStoreConstants;
-import mvm.rya.api.domain.RangeValue;
 import mvm.rya.api.domain.RyaStatement;
 import mvm.rya.api.domain.RyaURI;
 import mvm.rya.api.persist.RdfEvalStatsDAO;
@@ -65,53 +103,6 @@ import mvm.rya.rdftriplestore.namespace.NamespaceManager;
 import mvm.rya.rdftriplestore.provenance.ProvenanceCollectionException;
 import mvm.rya.rdftriplestore.provenance.ProvenanceCollector;
 import mvm.rya.rdftriplestore.utils.DefaultStatistics;
-
-import org.apache.hadoop.conf.Configurable;
-import org.openrdf.model.Namespace;
-import org.openrdf.model.Resource;
-import org.openrdf.model.Statement;
-import org.openrdf.model.URI;
-import org.openrdf.model.Value;
-import org.openrdf.model.ValueFactory;
-import org.openrdf.model.impl.BooleanLiteralImpl;
-import org.openrdf.model.impl.ContextStatementImpl;
-import org.openrdf.model.impl.StatementImpl;
-import org.openrdf.query.Binding;
-import org.openrdf.query.BindingSet;
-import org.openrdf.query.Dataset;
-import org.openrdf.query.QueryEvaluationException;
-import org.openrdf.query.algebra.BinaryTupleOperator;
-import org.openrdf.query.algebra.Filter;
-import org.openrdf.query.algebra.FunctionCall;
-import org.openrdf.query.algebra.QueryModelNode;
-import org.openrdf.query.algebra.QueryRoot;
-import org.openrdf.query.algebra.StatementPattern;
-import org.openrdf.query.algebra.TupleExpr;
-import org.openrdf.query.algebra.UnaryTupleOperator;
-import org.openrdf.query.algebra.ValueConstant;
-import org.openrdf.query.algebra.ValueExpr;
-import org.openrdf.query.algebra.Var;
-import org.openrdf.query.algebra.evaluation.EvaluationStrategy;
-import org.openrdf.query.algebra.evaluation.QueryBindingSet;
-import org.openrdf.query.algebra.evaluation.QueryOptimizer;
-import org.openrdf.query.algebra.evaluation.TripleSource;
-import org.openrdf.query.algebra.evaluation.impl.BindingAssigner;
-import org.openrdf.query.algebra.evaluation.impl.CompareOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.ConjunctiveConstraintSplitter;
-import org.openrdf.query.algebra.evaluation.impl.ConstantOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.DisjunctiveConstraintOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.EvaluationStatistics;
-import org.openrdf.query.algebra.evaluation.impl.FilterOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.IterativeEvaluationOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.OrderLimitOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.QueryModelNormalizer;
-import org.openrdf.query.algebra.evaluation.impl.SameTermFilterOptimizer;
-import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
-import org.openrdf.query.impl.EmptyBindingSet;
-import org.openrdf.sail.SailException;
-import org.openrdf.sail.helpers.SailConnectionBase;
-
-import com.google.common.base.Strings;
 
 public class RdfCloudTripleStoreConnection extends SailConnectionBase {
 
@@ -473,8 +464,8 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
         if (tupleExpr instanceof BinaryTupleOperator) {
             BinaryTupleOperator join = (BinaryTupleOperator)tupleExpr;
 
-            reportCrossProduct(join.getLeftArg(), depth);
-            reportCrossProduct(join.getRightArg(), depth);
+            reportCrossProductOld(join.getLeftArg(), depth);
+            reportCrossProductOld(join.getRightArg(), depth);
 
             Set<String> intersection;
             Set<String> leftBindings = join.getLeftArg().getBindingNames();
@@ -487,7 +478,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             }
         }
         else if (tupleExpr instanceof UnaryTupleOperator) {
-            reportCrossProduct(((UnaryTupleOperator)tupleExpr).getArg(), depth-1);
+            reportCrossProductOld(((UnaryTupleOperator) tupleExpr).getArg(), depth - 1);
             reportNode(tupleExpr, depth, "");
         } else {
             // leaf node, no children.
@@ -746,6 +737,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             this.conf = conf;
         }
 
+        @Override
         public CloseableIteration<Statement, QueryEvaluationException> getStatements(
                 Resource subject, URI predicate, Value object,
                 Resource... contexts) throws QueryEvaluationException {
@@ -759,6 +751,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             return RyaDAOHelper.query(ryaDAO, statements, conf);
         }
 
+        @Override
         public ValueFactory getValueFactory() {
             return RdfCloudTripleStoreConstants.VALUE_FACTORY;
         }

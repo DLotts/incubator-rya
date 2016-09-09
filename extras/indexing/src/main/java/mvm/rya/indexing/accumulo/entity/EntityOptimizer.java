@@ -242,7 +242,9 @@ public class EntityOptimizer implements QueryOptimizer, Configurable {
             }
             return newJoin;
         }
-
+        
+// Consider using this for creating a graph of binding Variables -- dlotts
+        
         private HashMultimap<String, StatementPattern> getVarBins(List<TupleExpr> nodes) {
 
             HashMultimap<String, StatementPattern> varMap = HashMultimap.create();
