@@ -25,15 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import mvm.rya.accumulo.AccumuloRdfConfiguration;
-import mvm.rya.api.RdfCloudTripleStoreConfiguration;
-import mvm.rya.api.persist.joinselect.SelectivityEvalDAO;
-import mvm.rya.indexing.accumulo.ConfigUtils;
-import mvm.rya.joinselect.AccumuloSelectivityEvalDAO;
-import mvm.rya.prospector.service.ProspectorServiceEvalStatsDAO;
-import mvm.rya.rdftriplestore.inference.DoNotExpandSP;
-import mvm.rya.rdftriplestore.utils.FixedStatementPattern;
-
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.hadoop.conf.Configurable;
@@ -51,6 +42,15 @@ import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import mvm.rya.accumulo.AccumuloRdfConfiguration;
+import mvm.rya.api.RdfCloudTripleStoreConfiguration;
+import mvm.rya.api.persist.joinselect.SelectivityEvalDAO;
+import mvm.rya.indexing.accumulo.ConfigUtils;
+import mvm.rya.joinselect.AccumuloSelectivityEvalDAO;
+import mvm.rya.prospector.service.ProspectorServiceEvalStatsDAO;
+import mvm.rya.rdftriplestore.inference.DoNotExpandSP;
+import mvm.rya.rdftriplestore.utils.FixedStatementPattern;
 
 public class EntityOptimizer implements QueryOptimizer, Configurable {
 
@@ -242,8 +242,9 @@ public class EntityOptimizer implements QueryOptimizer, Configurable {
             }
             return newJoin;
         }
-        
-// Consider using this for creating a graph of binding Variables -- dlotts
+        ///////////////////////////////////////////////////
+        // Consider using this for creating a graph of binding Variables -- said
+        /////////////////////////////////////////////////// caleb to dlotts
         
         private HashMultimap<String, StatementPattern> getVarBins(List<TupleExpr> nodes) {
 

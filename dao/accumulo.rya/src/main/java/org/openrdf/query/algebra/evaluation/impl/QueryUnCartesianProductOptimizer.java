@@ -38,7 +38,7 @@ import com.google.common.collect.HashMultimap;
  */
 public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     /**
-     * Does not test Caresian Products exists.
+     * Does not test Cartesian Products exists.
      * 
      * @param tupleExpr
      */
@@ -91,4 +91,16 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
         return varMap;
     }
 
+    static HashMultimap<StatementPattern, StatementPattern> makeGraph(HashMultimap<String, StatementPattern> varIndexToSp) {
+        HashMultimap<StatementPattern, StatementPattern> graph = HashMultimap.create();
+        for (String var : varIndexToSp.keySet())
+            for (StatementPattern sp1 : varIndexToSp.get(var)) {
+                for (StatementPattern sp2 : varIndexToSp.get(var)) {
+                    if (sp1 != sp2)
+                        // Add edges in both ways:
+                        graph.put(sp1, sp2);
+                }
+            }
+        return graph;
+    }
 }
