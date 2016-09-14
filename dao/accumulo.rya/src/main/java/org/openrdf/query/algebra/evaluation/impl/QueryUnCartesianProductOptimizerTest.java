@@ -75,7 +75,7 @@ public class QueryUnCartesianProductOptimizerTest {
     public void testMakeGraphLine() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIJ"));
         HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
-        
+
         HashMultimap<StatementPattern, StatementPattern> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 8, graph.size());
@@ -99,6 +99,56 @@ public class QueryUnCartesianProductOptimizerTest {
         HashMultimap<StatementPattern, StatementPattern> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 20, graph.size());
+        printGraph(graph);
     }
 
+    public void printGraph(HashMultimap<StatementPattern, StatementPattern> graph) {
+        System.out.println("=========begin graph.net==========");
+        System.out.println("*Vertices " + graph.keySet().size());
+        for (StatementPattern sp : graph.keySet()) {
+            String nodeName = nodeName(sp);
+            int nodeID = nodeID(sp);
+            System.out.println(nodeID + "   " + nodeName);
+        }
+        System.out.println("*Arcs");
+        for (StatementPattern sp1 : graph.keySet()) {
+            for (StatementPattern sp2 : graph.get(sp1))
+                System.out.println(nodeID(sp1) + "   " + nodeID(sp2));
+        }
+        System.out.println("=========end graph.net==========");
+        // for (StatementPattern sp2 : varIndexToSp.get(var)) {
+        // if (sp1 != sp2)
+        // // Add edges in both ways:
+        // graph.put(sp1, sp2);
+        // }
+
+        // *Vertices 6
+        // 1 "0"
+        // 2 "1"
+        // 3 "label"
+        // *Arcs
+        // 1 2
+        // 2 3
+        // 3 1
+
+    }
+
+    private int nodeID(StatementPattern sp) {
+        return sp.hashCode();
+    }
+
+    /**
+     * @param sp
+     * @param nodeName
+     * @return
+     */
+    private String nodeName(StatementPattern sp) {
+        StringBuilder nodeName = new StringBuilder();
+        for (Var var : sp.getVarList()) {
+            if (nodeName.length() > 0)
+                nodeName.append("-");
+            nodeName.append(var.getName());
+        }
+        return nodeName.toString();
+    }
 }
