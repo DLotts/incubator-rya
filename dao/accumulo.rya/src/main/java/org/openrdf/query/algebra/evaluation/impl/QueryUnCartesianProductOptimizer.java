@@ -44,7 +44,11 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
      */
     @Override
     public void optimize(TupleExpr tupleExpr, Dataset dataset, BindingSet bindings) {
-        tupleExpr.visit(new JoinVisitor());
+        HashMultimap<String, TupleExpr> varMap = getVarBins(tupleExpr, null);
+        HashMultimap<TupleExpr, TupleExpr> graph = makeGraph(varMap);
+        QueryUnCartesianProductOptimizerTest.printGraph(graph);
+        // TODO rearrange the query:
+        // tupleExpr.visit(new JoinVisitor());
     }
 
     protected class JoinVisitor extends QueryModelVisitorBase<RuntimeException> {
@@ -58,21 +62,35 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     }
 
     /**
-     * put nodes in bins/buckets by there included variable names. a statement
+     * put nodes in bins/buckets by their included variable names. a statement
      * pattern with variables A and C goes in A bin and C bin.
      * 
      * @param nodes
      * @return
      */
     @VisibleForTesting
-    static HashMultimap<String, StatementPattern> getVarBins(TupleExpr tupleExpr,
-                    HashMultimap<String, StatementPattern> varMap) {
+    static HashMultimap<String, TupleExpr> getVarBins(TupleExpr tupleExpr, HashMultimap<String, TupleExpr> varMap) {
         if (varMap == null)
             varMap = HashMultimap.create();
         if (tupleExpr instanceof BinaryTupleOperator) {
-            BinaryTupleOperator join = (BinaryTupleOperator) tupleExpr;
-            getVarBins(join.getLeftArg(), varMap);
-            getVarBins(join.getRightArg(), varMap);
+            if (tupleExpr instanceof Join) {
+                BinaryTupleOperator join = (BinaryTupleOperator) tupleExpr;
+                getVarBins(join.getLeftArg(), varMap);
+                getVarBins(join.getRightArg(), varMap);
+            } else {
+                // treat non-joins as similar to statement patterns, don't
+                // traverse them.
+                // particularly Unions and LeftJoins that can't be disassembled
+                // arbitrarily.
+                // TODO Remember this node and optimize this subtree later.
+                // Grab the variables, and sort the StatementPattern into bins:
+                for (String bindingName : tupleExpr.getBindingNames()) {
+                    Var var = new Var(bindingName);
+                    if (!var.isConstant()) {
+                        varMap.put(var.getName(), tupleExpr);
+                    }
+                }
+            }
         } else if (tupleExpr instanceof UnaryTupleOperator) {
             getVarBins(((UnaryTupleOperator) tupleExpr).getArg(), varMap);
         } else {
@@ -80,22 +98,24 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
             if (tupleExpr instanceof StatementPattern) {
                 // Grab the variables, and sort the StatementPattern into bins:
                 StatementPattern sp = (StatementPattern) tupleExpr;
-                for (Var var : sp.getVarList())
-                {
+                for (Var var : sp.getVarList()) {
                     if (!var.isConstant()) {
                         varMap.put(var.getName(), sp);
                     }
                 }
+            } else {
+                System.out.println("Some unknown leaf node, ignoring:" + tupleExpr);
             }
         }
         return varMap;
     }
 
-    static HashMultimap<StatementPattern, StatementPattern> makeGraph(HashMultimap<String, StatementPattern> varIndexToSp) {
-        HashMultimap<StatementPattern, StatementPattern> graph = HashMultimap.create();
+    @VisibleForTesting
+    static HashMultimap<TupleExpr, TupleExpr> makeGraph(HashMultimap<String, TupleExpr> varIndexToSp) {
+        HashMultimap<TupleExpr, TupleExpr> graph = HashMultimap.create();
         for (String var : varIndexToSp.keySet())
-            for (StatementPattern sp1 : varIndexToSp.get(var)) {
-                for (StatementPattern sp2 : varIndexToSp.get(var)) {
+            for (TupleExpr sp1 : varIndexToSp.get(var)) {
+                for (TupleExpr sp2 : varIndexToSp.get(var)) {
                     if (sp1 != sp2)
                         // Add edges in both ways:
                         graph.put(sp1, sp2);

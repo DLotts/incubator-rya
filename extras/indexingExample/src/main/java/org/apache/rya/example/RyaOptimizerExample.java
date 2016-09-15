@@ -1,12 +1,9 @@
 package org.apache.rya.example;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.TableNotFoundException;
-import org.apache.commons.lang3.Validate;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
 import org.openrdf.query.BindingSet;
@@ -14,16 +11,12 @@ import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.QueryEvaluationException;
 import org.openrdf.query.QueryLanguage;
 import org.openrdf.query.QueryResultHandlerException;
-import org.openrdf.query.TupleQuery;
 import org.openrdf.query.TupleQueryResultHandler;
 import org.openrdf.query.TupleQueryResultHandlerException;
 import org.openrdf.query.Update;
 import org.openrdf.query.UpdateExecutionException;
-import org.openrdf.query.algebra.BinaryTupleOperator;
 import org.openrdf.query.algebra.TupleExpr;
-import org.openrdf.query.algebra.UnaryTupleOperator;
-import org.openrdf.query.algebra.evaluation.QueryOptimizer;
-import org.openrdf.query.algebra.evaluation.impl.QueryModelNormalizer;
+import org.openrdf.query.algebra.evaluation.impl.QueryUnCartesianProductOptimizer;
 import org.openrdf.query.parser.ParsedQuery;
 import org.openrdf.query.parser.sparql.SPARQLParser;
 import org.openrdf.repository.RepositoryException;
@@ -32,11 +25,8 @@ import org.openrdf.repository.sail.SailRepositoryConnection;
 import org.openrdf.sail.Sail;
 import org.openrdf.sail.SailException;
 
-import com.google.common.base.Strings;
-
 import mvm.rya.accumulo.AccumuloRdfConfiguration;
 import mvm.rya.api.RdfCloudTripleStoreConfiguration;
-import mvm.rya.indexing.FilterFunctionOptimizer;
 import mvm.rya.indexing.accumulo.ConfigUtils;
 import mvm.rya.indexing.accumulo.geo.GeoConstants;
 import mvm.rya.indexing.external.PrecomputedJoinIndexerConfig;
@@ -178,20 +168,20 @@ public class RyaOptimizerExample {
                         //                        "  FILTER(?endTime > '2015-8-25T12:00:00-0200') " + 
                         "    FILTER(tempo:after(?endTime, '2015-8-25T12:00:00Z') ) . " +
                         " }";
- // The usual evaluation:
-        final CountingResultHandler resultHandler = new CountingResultHandler();
-        TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
-        tupleQuery.evaluate(resultHandler);
-        log.info("Result count : " + resultHandler.getCount());
-        Validate.isTrue(resultHandler.getCount() == 3);
-        resultHandler.resetCount();
+        // // The usual evaluation:
+        // final CountingResultHandler resultHandler = new CountingResultHandler();
+        // TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+        // tupleQuery.evaluate(resultHandler);
+        // log.info("Result count : " + resultHandler.getCount());
+        // Validate.isTrue(resultHandler.getCount() == 3);
+        // resultHandler.resetCount();
+
+        // Instead of the usual evaluation, lets try different optimizers:
+        SPARQLParser parser = new SPARQLParser();
+        ParsedQuery pq = parser.parseQuery(query, null);
+        TupleExpr te = pq.getTupleExpr();
 
 
-// // Instead of the usual evaluation, lets try different optimizers:
-//        SPARQLParser parser = new SPARQLParser();
-//        ParsedQuery pq = parser.parseQuery(query, null);
-//        TupleExpr te = pq.getTupleExpr();
-//        
 //        FilterFunctionOptimizer optimizer1 = new FilterFunctionOptimizer();
 //        optimizer1.setConf(getConf());
 //        
@@ -201,11 +191,13 @@ public class RyaOptimizerExample {
 //        RdfCloudTripleStoreConnection.reportCrossProduct(te,0);
 //        System.out.println("====crossproducts Before optimized.");
 //
-//        optimizer1.optimize(te, null, null);
-//        System.out.println("After 1st optimized:\n"+te);
-//        RdfCloudTripleStoreConnection.reportCrossProduct(te,0);
-//        System.out.println("====crossproducts After 1st optimized.");
-//
+
+        QueryUnCartesianProductOptimizer optimizer1 = new QueryUnCartesianProductOptimizer();
+        optimizer1.optimize(te, null, null);
+        System.out.println("After 1st optimized:\n" + te);
+        RdfCloudTripleStoreConnection.reportCrossProduct(te, 0);
+        System.out.println("====crossproducts After 1st optimized.");
+
 //        optimizer2.optimize(te, null, null);
 //        System.out.println("After 2nd optimized:\n"+te);
 //

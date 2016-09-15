@@ -2,6 +2,9 @@ package org.openrdf.query.algebra.evaluation.impl;
 
 import static org.junit.Assert.assertEquals;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.Test;
 import org.openrdf.query.algebra.Join;
 import org.openrdf.query.algebra.StatementPattern;
@@ -16,14 +19,14 @@ public class QueryUnCartesianProductOptimizerTest {
     public void testGetVarBins01() {
         // Var varA=new Var("A");
         TupleExpr tupleExpr = new StatementPattern(new Var("A"), new Var("B"), new Var("C"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
         assertEquals("contains 3, A B and C vars.", 3, mm.size());
     }
 
     @Test
     public void testGetVarBins02() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIJ"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
         assertEquals("contains 15, 5 sp *3 vars.=" + mm, 15, mm.size());
         assertEquals("A bin has 1.=" + mm.get("A"), 1, mm.get("A").size());
         assertEquals("B bin has 2.=" + mm.get("B"), 2, mm.get("B").size());
@@ -35,7 +38,7 @@ public class QueryUnCartesianProductOptimizerTest {
     @Test
     public void testGetVarBins03() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BBB")), sp("DBE")), sp("EFB")), sp("BGB"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
         assertEquals("contains 12, 3 vars * 5 sp - 3 repeats: BBB,BGB .=" + mm, 12, mm.size());
         assertEquals("A bin has =" + mm.get("A"), 1, mm.get("A").size());
         assertEquals("B bin has =" + mm.get("B"), 5, mm.get("B").size());
@@ -74,9 +77,9 @@ public class QueryUnCartesianProductOptimizerTest {
     @Test
     public void testMakeGraphLine() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIJ"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
 
-        HashMultimap<StatementPattern, StatementPattern> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+        HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 8, graph.size());
     }
@@ -84,9 +87,10 @@ public class QueryUnCartesianProductOptimizerTest {
     @Test
     public void testMakeGraphCircle() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIA"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
 
-        HashMultimap<StatementPattern, StatementPattern> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+        HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+        printGraph(graph);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 10, graph.size());
     }
@@ -94,61 +98,75 @@ public class QueryUnCartesianProductOptimizerTest {
     @Test
     public void testMakeGraphFullyConnected() {
         Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BBB")), sp("DBE")), sp("EFB")), sp("BGB"));
-        HashMultimap<String, StatementPattern> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
 
-        HashMultimap<StatementPattern, StatementPattern> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+        HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+        printGraph(graph);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 20, graph.size());
-        printGraph(graph);
-    }
-
-    public void printGraph(HashMultimap<StatementPattern, StatementPattern> graph) {
-        System.out.println("=========begin graph.net==========");
-        System.out.println("*Vertices " + graph.keySet().size());
-        for (StatementPattern sp : graph.keySet()) {
-            String nodeName = nodeName(sp);
-            int nodeID = nodeID(sp);
-            System.out.println(nodeID + "   " + nodeName);
-        }
-        System.out.println("*Arcs");
-        for (StatementPattern sp1 : graph.keySet()) {
-            for (StatementPattern sp2 : graph.get(sp1))
-                System.out.println(nodeID(sp1) + "   " + nodeID(sp2));
-        }
-        System.out.println("=========end graph.net==========");
-        // for (StatementPattern sp2 : varIndexToSp.get(var)) {
-        // if (sp1 != sp2)
-        // // Add edges in both ways:
-        // graph.put(sp1, sp2);
-        // }
-
-        // *Vertices 6
-        // 1 "0"
-        // 2 "1"
-        // 3 "label"
-        // *Arcs
-        // 1 2
-        // 2 3
-        // 3 1
-
-    }
-
-    private int nodeID(StatementPattern sp) {
-        return sp.hashCode();
     }
 
     /**
+     * Prints a graph in a format that can be rendered by Gephi, for example:
+     *  *Vertices 6
+     *  1 "0"
+     *  2 "1"
+     *  3 "label"
+     *  *Arcs
+     *  1 2
+     *  2 3
+     *  3 1
+     * 
+     * @param graph is a HashMultimap where nodes map to other notes.
+     */
+    public static void printGraph(HashMultimap<TupleExpr, TupleExpr> graph) {
+        System.out.println("=========begin graph.net==========\n");
+        // Got to have an integer nodeid starting with one.
+        int nextNodeId = 1;
+        // Store map from sp to nodeID
+        Map<TupleExpr, Integer> spToId = new HashMap<TupleExpr, Integer>();
+        // display all vertices:
+        System.out.println("*Vertices " + graph.keySet().size());
+        for (TupleExpr sp : graph.keySet()) {
+            String nodeName = nodeName(sp);
+            int nodeId = nextNodeId;
+            nextNodeId++;
+            spToId.put(sp, nodeId);
+            System.out.println(nodeId + "   " + nodeName);
+        }
+        // display all edges and weights:
+        System.out.println("*Arcs");
+        for (TupleExpr sp1 : graph.keySet()) {
+            for (TupleExpr sp2 : graph.get(sp1))
+                System.out.println(spToId.get(sp1) + "   " + spToId.get(sp2) /* Weight here */);
+        }
+        System.out.println("\n=========end graph.net==========");
+
+        // json from http://visualgo.net/mst
+        // {"vl":{"0":{"x":80,"y":40},"1":{"x":460,"y":200},"2":{"x":160,"y":220},"3":{"x":360,"y":60}},"el":{"0":{"u":0,"v":3,"w":3},"1":{"v":1,"u":3,"w":2},"2":{"u":1,"v":2,"w":4},"3":{"v":0,"u":2,"w":2}}}
+    }
+
+    /**
+     * Used to generate a tree, concatenates the vars to give a nice node label.
+     * 
      * @param sp
      * @param nodeName
      * @return
      */
-    private String nodeName(StatementPattern sp) {
+    private static String nodeName(TupleExpr sp) {
         StringBuilder nodeName = new StringBuilder();
-        for (Var var : sp.getVarList()) {
-            if (nodeName.length() > 0)
-                nodeName.append("-");
-            nodeName.append(var.getName());
-        }
+        if (sp instanceof StatementPattern)
+            for (Var var : ((StatementPattern) sp).getVarList()) {
+                if (nodeName.length() > 0)
+                    nodeName.append("-");
+                nodeName.append(var.getName());
+            }
+        else
+            for (String var : sp.getBindingNames()) {
+                if (nodeName.length() > 0)
+                    nodeName.append("-");
+                nodeName.append(var);
+            }
         return nodeName.toString();
     }
 }
