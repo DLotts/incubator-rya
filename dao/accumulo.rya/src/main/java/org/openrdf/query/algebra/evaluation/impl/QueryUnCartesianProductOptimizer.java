@@ -16,6 +16,9 @@
  */
 package org.openrdf.query.algebra.evaluation.impl;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.openrdf.query.BindingSet;
 import org.openrdf.query.Dataset;
 import org.openrdf.query.algebra.BinaryTupleOperator;
@@ -30,11 +33,10 @@ import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 
 /**
- * A query optimizer that repairs Joins orders that give Caresian Products.
- * Caresian Products are produced by two statements that have no variable names
- * in common.
+ * A query optimizer that repairs Joins orders that give Caresian Products. Caresian Products are produced by two statements that have no variable names in common.
  */
 public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     /**
@@ -62,8 +64,7 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     }
 
     /**
-     * put nodes in bins/buckets by their included variable names. a statement
-     * pattern with variables A and C goes in A bin and C bin.
+     * put nodes in bins/buckets by their included variable names. a statement pattern with variables A and C goes in A bin and C bin.
      * 
      * @param nodes
      * @return
@@ -123,4 +124,50 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
             }
         return graph;
     }
+
+    /**
+     * Find a set of edges that span the graph. this implementation just iterates all nodes and extracts new paths.
+     * 
+     * @param graph
+     * @return
+     */
+    public static HashMultimap<TupleExpr, TupleExpr> spanningTree(HashMultimap<TupleExpr, TupleExpr> graph) {
+        HashMultimap<TupleExpr, TupleExpr> tree = HashMultimap.create();
+        int nodeCount = graph.keySet().size();
+        Set<TupleExpr> visitedNode = new HashSet<TupleExpr>(nodeCount);
+        HashMultimap<TupleExpr, TupleExpr> visitedEdge = HashMultimap.create();
+        // for each node...
+        for (TupleExpr sp1 : getVertices(graph)) {
+            visitedNode.add(sp1);
+            // for each edge on this node...
+            for (TupleExpr sp2 : graph.get(sp1)) {
+                if (!visitedEdge.containsEntry(sp1, sp2)) {
+                    // remember both ways -- don't need to explore the other way.
+                    visitedEdge.put(sp1, sp2);
+                    visitedEdge.put(sp2, sp1);
+                    if (!visitedNode.contains(sp2)) {
+                        // Add edge in one way:
+                        tree.put(sp1, sp2);
+                        visitedNode.add(sp2);
+                    }
+                }
+            }
+        }
+        return tree;
+    }
+
+    /**
+     * Get all the vertices of a graph, including those with no outgoing edges. This uses a multimap as a graph implementation. This is probably expensive and should not be used outside of small graphs used for query
+     * planning where at 500 nodes would be considered extreme.
+     * 
+     * @param graph
+     * @return a set of tupleExpr
+     */
+    public static Set<TupleExpr> getVertices(Multimap<TupleExpr, TupleExpr> graph) {
+        Set<TupleExpr> vertices = new HashSet<TupleExpr>();
+        vertices.addAll(graph.keySet());
+        vertices.addAll(graph.values());
+        return vertices;
+    }
+
 }

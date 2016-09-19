@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Test;
 import org.openrdf.query.algebra.Join;
@@ -37,8 +38,7 @@ public class QueryUnCartesianProductOptimizerTest {
 
     @Test
     public void testGetVarBins03() {
-        Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BBB")), sp("DBE")), sp("EFB")), sp("BGB"));
-        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = graphFullConnected();
         assertEquals("contains 12, 3 vars * 5 sp - 3 repeats: BBB,BGB .=" + mm, 12, mm.size());
         assertEquals("A bin has =" + mm.get("A"), 1, mm.get("A").size());
         assertEquals("B bin has =" + mm.get("B"), 5, mm.get("B").size());
@@ -62,16 +62,14 @@ public class QueryUnCartesianProductOptimizerTest {
     }
 
     /**
-     * Make a statement pattern easy, provide var names as single letters
-     * concatinated.
+     * Make a statement pattern easy, provide var names as single letters concatinated.
      * 
      * @param spo
      *            -- split first three chars as the binding variables.
      * @return a new statementpattern
      */
     StatementPattern sp(String spo) {
-        return new StatementPattern(new Var(spo.substring(0, 1)), new Var(spo.substring(1, 2)),
-                        new Var(spo.substring(2)));
+        return new StatementPattern(new Var(spo.substring(0, 1)), new Var(spo.substring(1, 2)), new Var(spo.substring(2)));
     }
 
     @Test
@@ -86,8 +84,7 @@ public class QueryUnCartesianProductOptimizerTest {
 
     @Test
     public void testMakeGraphCircle() {
-        Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIA"));
-        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        HashMultimap<String, TupleExpr> mm = graphCircle();
 
         HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
         printGraph(graph);
@@ -97,27 +94,82 @@ public class QueryUnCartesianProductOptimizerTest {
 
     @Test
     public void testMakeGraphFullyConnected() {
-        Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BBB")), sp("DBE")), sp("EFB")), sp("BGB"));
-        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
-
+        HashMultimap<String, TupleExpr> mm = graphFullConnected();
         HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
         printGraph(graph);
         assertEquals("contains nodes=" + graph, 5, graph.keySet().size());
         assertEquals("contains edges=" + graph, 20, graph.size());
     }
 
+    private HashMultimap<String, TupleExpr> graphFullConnected() {
+        Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BBB")), sp("DBE")), sp("EFB")), sp("BGB"));
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        return mm;
+    }
+
+    @Test
+    public void testGetSpanningTreeCircle() {
+        HashMultimap<TupleExpr, TupleExpr> tree = null;
+        {
+            HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(graphCircle());
+            tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
+            assertEquals("before span contains edges=" + graph, 10, graph.size());
+            System.out.println("graph to be spanned:");
+            printGraph(graph);
+        }
+        System.out.println("The spanning tree:");
+        printGraph(tree);
+        assertEquals("span contains nodes=" + tree, 5, QueryUnCartesianProductOptimizer.getVertices(tree).size());
+        assertEquals("span contains edges=" + tree, 4, tree.size());
+    }
+
+    @Test
+    public void testGetSpanningTreeFullConnected() {
+        HashMultimap<TupleExpr, TupleExpr> tree = null;
+        {
+            HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(graphFullConnected());
+            tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
+            assertEquals("FullConnected: before span contains edges=" + graph, 20, graph.size());
+            System.out.println("graph to be spanned:");
+            printGraph(graph);
+        }
+        System.out.println("FullConnected: The spanning tree:");
+        printGraph(tree);
+        assertEquals("span contains nodes=" + tree, 5, QueryUnCartesianProductOptimizer.getVertices(tree).size());
+        assertEquals("span contains edges=" + tree, 4, tree.size());
+    }
+
     /**
-     * Prints a graph in a format that can be rendered by Gephi, for example:
-     *  *Vertices 6
-     *  1 "0"
-     *  2 "1"
-     *  3 "label"
-     *  *Arcs
-     *  1 2
-     *  2 3
-     *  3 1
+     * Test if a single node. only problem is that this is represented as an empty graph. vertices=0
+     */
+    @Test
+    public void testGetSpanningTreeSingle() {
+        HashMultimap<TupleExpr, TupleExpr> tree = null;
+        {
+            HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(sp("ABC"), null);
+            HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+            tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
+            assertEquals("FullConnected: before span contains edges=" + graph, 0, QueryUnCartesianProductOptimizer.getVertices(graph).size());
+            System.out.println("graph to be spanned:");
+            printGraph(graph);
+        }
+        System.out.println("FullConnected: The spanning tree:");
+        printGraph(tree);
+        assertEquals("span contains nodes=" + tree, 1, QueryUnCartesianProductOptimizer.getVertices(tree).size());
+        assertEquals("span contains edges=" + tree, 0, tree.size());
+    }
+
+    private HashMultimap<String, TupleExpr> graphCircle() {
+        Join tupleExpr = new Join(new Join(new Join(new Join(sp("ABC"), sp("BCD")), sp("DEF")), sp("FGH")), sp("HIA"));
+        HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(tupleExpr, null);
+        return mm;
+    }
+
+    /**
+     * Prints a graph in a format .net, that can be rendered by Gephi, for example: *Vertices 6 1 "0" 2 "1" 3 "label" *Arcs 1 2 2 3 3 1
      * 
-     * @param graph is a HashMultimap where nodes map to other notes.
+     * @param graph
+     *            is a HashMultimap where nodes map to other notes.
      */
     public static void printGraph(HashMultimap<TupleExpr, TupleExpr> graph) {
         System.out.println("=========begin graph.net==========\n");
@@ -126,8 +178,10 @@ public class QueryUnCartesianProductOptimizerTest {
         // Store map from sp to nodeID
         Map<TupleExpr, Integer> spToId = new HashMap<TupleExpr, Integer>();
         // display all vertices:
-        System.out.println("*Vertices " + graph.keySet().size());
-        for (TupleExpr sp : graph.keySet()) {
+        // Vertices with only incoming edges won't have a key, so add them:
+        Set<TupleExpr> vertices = QueryUnCartesianProductOptimizer.getVertices(graph);
+        System.out.println("*Vertices " + vertices.size());
+        for (TupleExpr sp : vertices) {
             String nodeName = nodeName(sp);
             int nodeId = nextNodeId;
             nextNodeId++;
@@ -146,6 +200,7 @@ public class QueryUnCartesianProductOptimizerTest {
         // {"vl":{"0":{"x":80,"y":40},"1":{"x":460,"y":200},"2":{"x":160,"y":220},"3":{"x":360,"y":60}},"el":{"0":{"u":0,"v":3,"w":3},"1":{"v":1,"u":3,"w":2},"2":{"u":1,"v":2,"w":4},"3":{"v":0,"u":2,"w":2}}}
     }
 
+
     /**
      * Used to generate a tree, concatenates the vars to give a nice node label.
      * 
@@ -154,17 +209,17 @@ public class QueryUnCartesianProductOptimizerTest {
      * @return
      */
     private static String nodeName(TupleExpr sp) {
-        StringBuilder nodeName = new StringBuilder();
+        StringBuilder nodeName = new StringBuilder(sp.getSignature());
         if (sp instanceof StatementPattern)
             for (Var var : ((StatementPattern) sp).getVarList()) {
                 if (nodeName.length() > 0)
-                    nodeName.append("-");
+                    nodeName.append("||");
                 nodeName.append(var.getName());
             }
         else
             for (String var : sp.getBindingNames()) {
                 if (nodeName.length() > 0)
-                    nodeName.append("-");
+                    nodeName.append("||");
                 nodeName.append(var);
             }
         return nodeName.toString();
