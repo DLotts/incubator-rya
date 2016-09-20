@@ -140,7 +140,7 @@ public class QueryUnCartesianProductOptimizerTest {
     }
 
     /**
-     * Test if a single node. only problem is that this is represented as an empty graph. vertices=0
+     * Test if a single node. TODO only problem is that this is represented as an empty graph. vertices=0 TODO: make this use wieghts to make a minimal spanning tree.
      */
     @Test
     public void testGetSpanningTreeSingle() {

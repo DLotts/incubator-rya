@@ -128,6 +128,9 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     /**
      * Find a set of edges that span the graph. this implementation just iterates all nodes and extracts new paths.
      * 
+     * TODO only problem is that this is represented as an empty graph. vertices=0
+     * TODO: make this use wieghts to make a minimal spanning tree.
+     * 
      * @param graph
      * @return
      */
@@ -157,7 +160,9 @@ public class QueryUnCartesianProductOptimizer implements QueryOptimizer {
     }
 
     /**
-     * Get all the vertices of a graph, including those with no outgoing edges. This uses a multimap as a graph implementation. This is probably expensive and should not be used outside of small graphs used for query
+     * Get all the vertices of a graph, including those with no outgoing edges.
+     * This uses a multimap as a graph implementation.
+     * This is probably expensive and should not be used outside of small graphs used for query
      * planning where at 500 nodes would be considered extreme.
      * 
      * @param graph
