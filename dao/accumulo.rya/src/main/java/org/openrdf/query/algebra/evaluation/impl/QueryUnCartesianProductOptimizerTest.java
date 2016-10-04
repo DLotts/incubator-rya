@@ -114,10 +114,10 @@ public class QueryUnCartesianProductOptimizerTest {
             HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(graphCircle());
             tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
             assertEquals("before span contains edges=" + graph, 10, graph.size());
-            System.out.println("graph to be spanned:");
+            System.out.println("testGetSpanningTreeCircle: graph to be spanned:");
             printGraph(graph);
         }
-        System.out.println("The spanning tree:");
+        System.out.println("testGetSpanningTreeCircle: The spanning tree:");
         printGraph(tree);
         assertEquals("span contains nodes=" + tree, 5, QueryUnCartesianProductOptimizer.getVertices(tree).size());
         assertEquals("span contains edges=" + tree, 4, tree.size());
@@ -129,18 +129,38 @@ public class QueryUnCartesianProductOptimizerTest {
         {
             HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(graphFullConnected());
             tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
-            assertEquals("FullConnected: before span contains edges=" + graph, 20, graph.size());
-            System.out.println("graph to be spanned:");
+            assertEquals("before span contains edges=" + graph, 20, graph.size());
+            System.out.println("testGetSpanningTreeFullConnected: graph to be spanned:");
             printGraph(graph);
         }
-        System.out.println("FullConnected: The spanning tree:");
+        System.out.println("testGetSpanningTreeFullConnected: The spanning tree:");
         printGraph(tree);
         assertEquals("span contains nodes=" + tree, 5, QueryUnCartesianProductOptimizer.getVertices(tree).size());
         assertEquals("span contains edges=" + tree, 4, tree.size());
     }
 
     /**
-     * Test if a single node. TODO only problem is that this is represented as an empty graph. vertices=0 TODO: make this use wieghts to make a minimal spanning tree.
+     * Test spanning two nodes.
+     */
+    @Test
+    public void testGetSpanningTreeDouble() {
+        HashMultimap<TupleExpr, TupleExpr> tree = null;
+        {
+            HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(new Join(sp("ABC"), sp("ABD")), null);
+            HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
+            tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
+            assertEquals("before span contains edges=" + graph, 2, QueryUnCartesianProductOptimizer.getVertices(graph).size());
+            System.out.println("testGetSpanningTreeDouble: testGetSpanningTreeSingle: graph to be spanned:");
+            printGraph(graph);
+        }
+        System.out.println("testGetSpanningTreeDouble: The spanning tree:");
+        printGraph(tree);
+        assertEquals("span contains nodes=" + tree, 2, QueryUnCartesianProductOptimizer.getVertices(tree).size());
+        assertEquals("span contains edges=" + tree, 1, tree.size());
+    }
+
+    /**
+     * Test if a single node. TODO only problem is that this is represented as an empty graph. vertices=0 TODO: make this use weights to make a minimal spanning tree.
      */
     @Test
     public void testGetSpanningTreeSingle() {
@@ -149,11 +169,11 @@ public class QueryUnCartesianProductOptimizerTest {
             HashMultimap<String, TupleExpr> mm = QueryUnCartesianProductOptimizer.getVarBins(sp("ABC"), null);
             HashMultimap<TupleExpr, TupleExpr> graph = QueryUnCartesianProductOptimizer.makeGraph(mm);
             tree = QueryUnCartesianProductOptimizer.spanningTree(graph);
-            assertEquals("FullConnected: before span contains edges=" + graph, 0, QueryUnCartesianProductOptimizer.getVertices(graph).size());
-            System.out.println("graph to be spanned:");
+            assertEquals("before span contains edges=" + graph, 0, QueryUnCartesianProductOptimizer.getVertices(graph).size());
+            System.out.println("testGetSpanningTreeSingle: graph to be spanned:");
             printGraph(graph);
         }
-        System.out.println("FullConnected: The spanning tree:");
+        System.out.println("testGetSpanningTreeSingle: The spanning tree:");
         printGraph(tree);
         assertEquals("span contains nodes=" + tree, 1, QueryUnCartesianProductOptimizer.getVertices(tree).size());
         assertEquals("span contains edges=" + tree, 0, tree.size());
@@ -166,12 +186,20 @@ public class QueryUnCartesianProductOptimizerTest {
     }
 
     /**
-     * Prints a graph in a format .net, that can be rendered by Gephi, for example: *Vertices 6 1 "0" 2 "1" 3 "label" *Arcs 1 2 2 3 3 1
+     * Prints a graph in a format .net, that can be rendered by Gephi, for example:
+     * Vertices 6
+     * 1 "0"
+     * 2 "vertex1"
+     * 3 "nodelabel"
+     * Arcs
+     * 1 2
+     * 2 3
+     * 3 1
      * 
      * @param graph
      *            is a HashMultimap where nodes map to other notes.
      */
-    public static void printGraph(HashMultimap<TupleExpr, TupleExpr> graph) {
+    public static void printGraphNet(HashMultimap<TupleExpr, TupleExpr> graph) {
         System.out.println("=========begin graph.net==========\n");
         // Got to have an integer nodeid starting with one.
         int nextNodeId = 1;
@@ -200,6 +228,39 @@ public class QueryUnCartesianProductOptimizerTest {
         // {"vl":{"0":{"x":80,"y":40},"1":{"x":460,"y":200},"2":{"x":160,"y":220},"3":{"x":360,"y":60}},"el":{"0":{"u":0,"v":3,"w":3},"1":{"v":1,"u":3,"w":2},"2":{"u":1,"v":2,"w":4},"3":{"v":0,"u":2,"w":2}}}
     }
 
+    /**
+     * Generate a graph that can be displayed by pasteing into here:
+     * http://visjs.org/examples/network/basicUsage.html
+     * 
+     * @param graph
+     */
+    public static void printGraph/* VisJl */(HashMultimap<TupleExpr, TupleExpr> graph) {
+        System.out.println("=========begin visJS of the graph==========\n");
+        System.out.println("  var nodes = new vis.DataSet([");
+        // integer nodeid starting with one.
+        int nextNodeId = 1;
+        // Store map from sp to nodeID
+        Map<TupleExpr, Integer> spToId = new HashMap<TupleExpr, Integer>();
+        // display all vertices:
+        // Vertices with only incoming edges won't have a key, so add them:
+        Set<TupleExpr> vertices = QueryUnCartesianProductOptimizer.getVertices(graph);
+        for (TupleExpr sp : vertices) {
+            String nodeName = nodeName(sp);
+            int nodeId = nextNodeId;
+            nextNodeId++;
+            spToId.put(sp, nodeId);
+            System.out.println("    {id: " + nodeId + ", label: '" + nodeName + "'},");
+        }
+        // display all edges and weights:
+        System.out.println("  ]);\n  var edges = new vis.DataSet([");
+        for (TupleExpr sp1 : graph.keySet()) {
+            for (TupleExpr sp2 : graph.get(sp1))
+                System.out.println("    {from: " + spToId.get(sp1) + ", to: " + spToId.get(sp2) + "},");
+        }
+        System.out.println("  ]);");
+        System.out.println("=========end visjs==========");
+
+    }
 
     /**
      * Used to generate a tree, concatenates the vars to give a nice node label.

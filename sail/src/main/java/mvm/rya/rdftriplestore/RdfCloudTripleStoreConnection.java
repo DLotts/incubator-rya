@@ -500,7 +500,9 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
      * @param depth current recursive depth, start with 0.  -- not used
      */
     public static void reportCrossProduct(TupleExpr tupleExpr, int depth) {
+        System.out.println("+++ Reporting crossproducts");
         tupleExpr.visit(new CrossProductVisitor()); 
+        System.out.println("+++ end Reporting crossproducts");
     }
 
     private static class CrossProductVisitor extends QueryModelVisitorBase<RuntimeException> {
