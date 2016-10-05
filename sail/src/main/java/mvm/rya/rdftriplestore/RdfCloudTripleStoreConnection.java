@@ -226,7 +226,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
 			}
         }
         tupleExpr = tupleExpr.clone();
-        reportCrossProduct(tupleExpr,0);
+        reportCartProduct(tupleExpr, "Eval, very begining");
         RdfCloudTripleStoreConfiguration queryConf = store.getConf().clone();
         if (bindings != null) {
             Binding dispPlan = bindings.getBinding(RdfCloudTripleStoreConfiguration.CONF_QUERYPLAN_FLAG);
@@ -305,29 +305,29 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                     new StoreTripleSource(queryConf), inferenceEngine, dataset, queryConf);
             
                 (new BindingAssigner()).optimize(tupleExpr, dataset, bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "AFTER BindingAssigner");
 
                 (new ConstantOptimizer(strategy)).optimize(tupleExpr, dataset, bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "ConstantOptimizer");
                 
                 (new CompareOptimizer()).optimize(tupleExpr, dataset, bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "CompareOptimizer");
 
                 (new ConjunctiveConstraintSplitter()).optimize(tupleExpr, dataset,bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "ConjunctiveConstraintSplitter");
 
                 (new DisjunctiveConstraintOptimizer()).optimize(tupleExpr, dataset,bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "ConjunctiveConstraintSplitter");
 
                 (new SameTermFilterOptimizer()).optimize(tupleExpr, dataset,bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "SameTermFilterOptimizer");
 
                 (new QueryModelNormalizer()).optimize(tupleExpr, dataset, bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "QueryModelNormalizer");
 
     
                 (new IterativeEvaluationOptimizer()).optimize(tupleExpr, dataset,bindings);
-                reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "IterativeEvaluationOptimizer");
 
 
             for (Class<QueryOptimizer> optclz : optimizers) {
@@ -354,10 +354,10 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             }
 
             (new FilterOptimizer()).optimize(tupleExpr, dataset, bindings);
-            System.out.println("Check crossproduct after FilterOptimizer.");reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "after FilterOptimizer.");
             
             (new OrderLimitOptimizer()).optimize(tupleExpr, dataset, bindings);
-            System.out.println("Check crossproduct after OrderLimitOptimizer.");reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "after OrderLimitOptimizer");
 
             
             logger.trace("Optimized query model:\n{}", tupleExpr.toString());
@@ -375,23 +375,20 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                System.out.println("Check crossproduct after inferenceEngine.");reportCrossProduct(tupleExpr,0);
+                reportCartProduct(tupleExpr, "after inferenceEngine");
             }
             if (queryConf.isPerformant()) {
                 tupleExpr.visit(new SeparateFilterJoinsVisitor());
 //                tupleExpr.visit(new FilterTimeIndexVisitor(queryConf));
 //                tupleExpr.visit(new PartitionFilterTimeIndexVisitor(queryConf));
-                System.out.println("Check crossproduct after isPerformant SeparateFilterJoinsVisitor.");
-                reportCrossProduct(tupleExpr,0);
+                reportCartProduct(tupleExpr, "isPerformant SeparateFilterJoinsVisitor.");
             }
             FilterRangeVisitor rangeVisitor = new FilterRangeVisitor(queryConf);
             tupleExpr.visit(rangeVisitor);
-            System.out.println("Check crossproduct after rangeVistor 1.");
-            reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "after rangeVistor 1.");
 
             tupleExpr.visit(rangeVisitor); //this has to be done twice to get replace the statementpatterns with the right ranges
-            System.out.println("Check crossproduct after rangeVistor 2.");
-            reportCrossProduct(tupleExpr,0);
+            reportCartProduct(tupleExpr, "after rangeVistor 2.");
 
             
             EvaluationStatistics stats = null;
@@ -410,12 +407,10 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             if (stats != null) {
                 if (stats instanceof RdfCloudTripleStoreSelectivityEvaluationStatistics) {
                     (new QueryJoinSelectOptimizer((RdfCloudTripleStoreSelectivityEvaluationStatistics) stats, selectEvalDAO)).optimize(tupleExpr, dataset, bindings);
-                    System.out.println("Check crossproduct after QueryJoinSelectOptimizer.");
-                    reportCrossProduct(tupleExpr,0);
+                    reportCartProduct(tupleExpr, "after QueryJoinSelectOptimizer.");
                 } else {
                     (new mvm.rya.rdftriplestore.evaluation.QueryJoinOptimizer(stats)).optimize(tupleExpr, dataset, bindings); // TODO: Make pluggable
-                    System.out.println("Check crossproduct after QueryJoinOptimizer.");
-                    reportCrossProduct(tupleExpr,0);
+                    reportCartProduct(tupleExpr, "after QueryJoinOptimizer");
                 }
             }
 
@@ -459,26 +454,26 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
      * @param tupleExpr root of the query model
      * @param depth current recursive depth, start with 0.
      */
-    public static void reportCrossProductOld(TupleExpr tupleExpr, int depth) {
+    public static void reportCartProductOld(TupleExpr tupleExpr, int depth) {
         depth++;
         if (tupleExpr instanceof BinaryTupleOperator) {
             BinaryTupleOperator join = (BinaryTupleOperator)tupleExpr;
 
-            reportCrossProductOld(join.getLeftArg(), depth);
-            reportCrossProductOld(join.getRightArg(), depth);
+            reportCartProductOld(join.getLeftArg(), depth);
+            reportCartProductOld(join.getRightArg(), depth);
 
             Set<String> intersection;
             Set<String> leftBindings = join.getLeftArg().getBindingNames();
             Set<String> rightBindings = join.getRightArg().getBindingNames();
             intersection = intersection(leftBindings, rightBindings);
             if (intersection.isEmpty()) {
-                reportNode(tupleExpr, depth, "\n!!!Crossproduct here!! No common binding names:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
+                reportNode(tupleExpr, depth, "\n!!!cartesian product here!! No common binding names:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
             } else {
                 reportNode(tupleExpr, depth, "\n"+indent(depth)+intersection+" are common.");
             }
         }
         else if (tupleExpr instanceof UnaryTupleOperator) {
-            reportCrossProductOld(((UnaryTupleOperator) tupleExpr).getArg(), depth - 1);
+            reportCartProductOld(((UnaryTupleOperator) tupleExpr).getArg(), depth - 1);
             reportNode(tupleExpr, depth, "");
         } else {
             // leaf node, no children.
@@ -493,20 +488,28 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
                 + tupleExpr.getBindingNames().toString().replaceAll("http.*?(?=[]#,])", "...") //
                 + message);
     }
+    
     /**
      * Report if the query plan has Cross product issues.
-     * This is the visitor pattern version. 
-     * @param tupleExpr root of the query model
-     * @param depth current recursive depth, start with 0.  -- not used
+     * This is the visitor pattern version.
+     * 
+     * @param tupleExpr
+     *            root of the query model
+     * @param msg
+     *            log message
      */
-    public static void reportCrossProduct(TupleExpr tupleExpr, int depth) {
-        System.out.println("+++ Reporting crossproducts");
-        tupleExpr.visit(new CrossProductVisitor()); 
-        System.out.println("+++ end Reporting crossproducts");
+    // public static void reportCartProduct(TupleExpr tupleExpr, int notused) {
+    // reportCartProduct(tupleExpr, "");
+    // }
+
+    public static void reportCartProduct(TupleExpr tupleExpr, String msg) {
+        System.out.println("==== Report cartesian products: ==== " + msg + " ====");
+        tupleExpr.visit(new CartProductVisitor()); 
+        System.out.println("==== end Report cartesian products: ==== " + msg + " ====");
     }
 
-    private static class CrossProductVisitor extends QueryModelVisitorBase<RuntimeException> {
-//        public CrossProductVisitor() {
+    private static class CartProductVisitor extends QueryModelVisitorBase<RuntimeException> {
+        // public CartProductVisitor() {
 //        }
         private int depth=0; // this will fail if object is shared between threads.
         @Override
@@ -520,7 +523,7 @@ public class RdfCloudTripleStoreConnection extends SailConnectionBase {
             Set<String> rightBindings = join.getRightArg().getBindingNames();
             intersection = intersection(leftBindings, rightBindings);
             if (intersection.isEmpty()) {
-                reportNode(tupleExpr, depth, "\n!!!Crossproduct here!! No common bindings:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
+                reportNode(tupleExpr, depth, "\n!!!cartesian product here!! No common bindings:\n+++leftBindings="+leftBindings+"\n+++rightBindings="+rightBindings);
             } else {
                 reportNode(tupleExpr, depth, "\n"+indent(depth)+intersection+" are common.");
             }

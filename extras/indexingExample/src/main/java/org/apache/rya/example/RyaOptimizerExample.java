@@ -1,9 +1,11 @@
 package org.apache.rya.example;
+
 import java.util.List;
 
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.commons.lang3.Validate;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Logger;
 import org.openrdf.query.BindingSet;
@@ -11,24 +13,20 @@ import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.QueryEvaluationException;
 import org.openrdf.query.QueryLanguage;
 import org.openrdf.query.QueryResultHandlerException;
+import org.openrdf.query.TupleQuery;
 import org.openrdf.query.TupleQueryResultHandler;
 import org.openrdf.query.TupleQueryResultHandlerException;
 import org.openrdf.query.Update;
 import org.openrdf.query.UpdateExecutionException;
-import org.openrdf.query.algebra.TupleExpr;
-import org.openrdf.query.algebra.evaluation.impl.QueryModelNormalizer;
-import org.openrdf.query.algebra.evaluation.impl.QueryUnCartesianProductOptimizer;
-import org.openrdf.query.parser.ParsedQuery;
-import org.openrdf.query.parser.sparql.SPARQLParser;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.sail.SailRepository;
 import org.openrdf.repository.sail.SailRepositoryConnection;
+import org.openrdf.repository.sail.SailTupleQuery;
 import org.openrdf.sail.Sail;
 import org.openrdf.sail.SailException;
 
 import mvm.rya.accumulo.AccumuloRdfConfiguration;
 import mvm.rya.api.RdfCloudTripleStoreConfiguration;
-import mvm.rya.indexing.FilterFunctionOptimizer;
 import mvm.rya.indexing.accumulo.ConfigUtils;
 import mvm.rya.indexing.accumulo.geo.GeoConstants;
 import mvm.rya.indexing.external.PrecomputedJoinIndexerConfig;
@@ -118,110 +116,68 @@ public class RyaOptimizerExample {
         return conf;
     }
 
-    public static void testAddAndDelete(RdfCloudTripleStore store, final SailRepositoryConnection conn) throws MalformedQueryException, RepositoryException, UpdateExecutionException,
-            QueryEvaluationException, TupleQueryResultHandlerException, AccumuloException, AccumuloSecurityException, TableNotFoundException, SailException {
-        String insert = 
-                "PREFIX geo: <http://www.opengis.net/ont/geosparql#> " +
-                "PREFIX time: <http://www.w3.org/2006/time#> " +
-                "INSERT DATA { " +
-                "_:x a <t:event> ; " +
-                "      <t:hasName> 'event'; " +
-                "      <t:startDate> [ " +
-                "        a time:Instant; " +
-                "        time:inXSDDateTime '2016-8-25T12:00:00Z' ; " +
-                "      ]; " +
-                "      <t:endDate> [ " +
-                "        a time:Instant; " +
-                "        time:inXSDDateTime '2016-8-25T13:00:00Z' ; " +
-                "      ]; " +
-                "      geo:hasGeometry  [ " +
-                "        geo:asWKT 'POINT (1 1)'^^geo:wktLiteral ; " +
-                "      ]. " +
-                "}";
+    public static void testAddAndDelete(RdfCloudTripleStore store, final SailRepositoryConnection conn) throws MalformedQueryException, RepositoryException, UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException, AccumuloException, AccumuloSecurityException, TableNotFoundException, SailException {
+        final String insert = "PREFIX geo: <http://www.opengis.net/ont/geosparql#> " + "PREFIX time: <http://www.w3.org/2006/time#> " + "INSERT DATA { " + "_:x a <t:event> ; " + "      <t:hasName> 'event'; " + "      <t:startDate> [ " + "        a time:Instant; " + "        time:inXSDDateTime '2016-8-25T12:00:00Z' ; " + "      ]; " + "      <t:endDate> [ " + "        a time:Instant; " + "        time:inXSDDateTime '2016-8-25T13:00:00Z' ; " + "      ]; " + "      geo:hasGeometry  [ " + "        geo:asWKT 'POINT (1 1)'^^geo:wktLiteral ; " + "      ]. " + "}";
 
-
-        Update update = conn.prepareUpdate(QueryLanguage.SPARQL, insert);
-        //insert three events
+        final Update update = conn.prepareUpdate(QueryLanguage.SPARQL, insert);
+        // insert three events
         update.execute();
         update.execute();
         update.execute();
-        
 
-        String query =
-                        "PREFIX time: <http://www.w3.org/2006/time#> " +
-                        "PREFIX tempo: <tag:rya-rdf.org,2015:temporal#> " +
-                        "PREFIX geo: <http://www.opengis.net/ont/geosparql#> " +
-                        "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> " +
-                        "SELECT ?event ?startTime ?endTime ?wkt " +
-                        "WHERE { " +
+        final String query = "PREFIX time: <http://www.w3.org/2006/time#> " + "PREFIX tempo: <tag:rya-rdf.org,2015:temporal#> " + "PREFIX geo: <http://www.opengis.net/ont/geosparql#> " + "PREFIX geof: <http://www.opengis.net/def/function/geosparql/> " + "SELECT ?event ?startTime ?endTime ?wkt " + "WHERE { " +
 
-                        "  ?location geo:asWKT ?wkt . " +
-                        "    FILTER(geof:sfWithin(?wkt, 'POLYGON((0 0, 5 0, 5 5, 0 5, 0 0))'^^geo:wktLiteral)) . " +
+                        "  ?location geo:asWKT ?wkt . " + "    FILTER(geof:sfWithin(?wkt, 'POLYGON((0 0, 5 0, 5 5, 0 5, 0 0))'^^geo:wktLiteral)) . " +
 
                         "  ?event geo:hasGeometry ?location . " +
 
-                        "  ?event <t:startDate> ?start . " +
-                        "  ?start time:inXSDDateTime ?startTime . " +
-                        "    FILTER(tempo:before(?startTime, '2017-8-25T12:00:00Z') ) . " +
-                                        // " FILTER(?startTime < '2017-8-25T12:00:00+0500') " +
+                        "  ?event <t:startDate> ?start . " + "  ?start time:inXSDDateTime ?startTime . " + "    FILTER(tempo:before(?startTime, '2017-8-25T12:00:00Z') ) . " +
+                        // " FILTER(?startTime < '2017-8-25T12:00:00+0500') " +
 
-                        "  ?event <t:endDate> ?end . " +
-                        "  ?end time:inXSDDateTime ?endTime . " +
-                        "    FILTER(tempo:after(?endTime, '2015-8-25T12:00:00Z') ) . " +
-                                        // " FILTER(?endTime > '2015-8-25T12:00:00-0200') " +
+                        "  ?event <t:endDate> ?end . " + "  ?end time:inXSDDateTime ?endTime . " + "    FILTER(tempo:after(?endTime, '2015-8-25T12:00:00Z') ) . " +
+                        // " FILTER(?endTime > '2015-8-25T12:00:00-0200') " +
                         " }";
 
-        // // The usual evaluation:
-        // final CountingResultHandler resultHandler = new CountingResultHandler();
-        // TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
-        // tupleQuery.evaluate(resultHandler);
-        // log.info("Result count : " + resultHandler.getCount());
-        // Validate.isTrue(resultHandler.getCount() == 3);
-        // resultHandler.resetCount();
+        // The usual evaluation:
+        final CountingResultHandler resultHandler = new CountingResultHandler();
+        TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+        tupleQuery.evaluate(resultHandler);
+        log.info("Result count : " + resultHandler.getCount());
+        Validate.isTrue(resultHandler.getCount() == 3);
+        resultHandler.resetCount();
 
-        // Instead of the usual evaluation, lets try different optimizers:
-        SPARQLParser parser = new SPARQLParser();
-        ParsedQuery pq = parser.parseQuery(query, null);
-        TupleExpr te = pq.getTupleExpr();
+        RdfCloudTripleStoreConnection.reportCartProduct(((SailTupleQuery) tupleQuery).getParsedQuery().getTupleExpr(), "after evaluation");
 
-        System.out.println("====before QueryModelNormalizer :\n");
-        RdfCloudTripleStoreConnection.reportCrossProduct(te, 0);
-        System.out.println("====end crossproducts Before QueryModelNormalizer.");
+        // // Instead of the usual evaluation, lets try different optimizers:
+        // final SPARQLParser parser = new SPARQLParser();
+        // final ParsedQuery pq = parser.parseQuery(query, null);
+        // final TupleExpr te = pq.getTupleExpr();
+        //
+        // // QueryModelNormalizer optimizerQuery = new QueryModelNormalizer();
+        // // optimizerQuery.optimize(te, null, null);
+        // EvaluationStatistics stats = new DefaultStatistics();
+        // (new mvm.rya.rdftriplestore.evaluation.QueryJoinOptimizer(stats)).optimize(te, null, null);
+        //
+        // RdfCloudTripleStoreConnection.reportCartProduct(te, "after QueryJoinOptimizer");
+        //
+        // FilterFunctionOptimizer optimizerFilterFunction = new FilterFunctionOptimizer();
+        // optimizerFilterFunction.setConf(getConf());
+        // optimizerFilterFunction.optimize(te, null, null);
+        //
+        // RdfCloudTripleStoreConnection.reportCartProduct(te, "before QueryUnCartesianProductOptimizer");
+        //
+        // QueryUnCartesianProductOptimizer optimizerUnCart = new QueryUnCartesianProductOptimizer();
+        //
+        // optimizerUnCart.optimize(te, null, null);
+        // RdfCloudTripleStoreConnection.reportCartProduct(te, "After QueryUnCartesianProductOptimizer");
 
-        QueryModelNormalizer optimizerQuery = new QueryModelNormalizer();// QueryJoinOptimizer();
-        optimizerQuery.optimize(te, null, null);
-
-        System.out.println("====before optimizerFilterFunction :\n");
-        RdfCloudTripleStoreConnection.reportCrossProduct(te, 0);
-        System.out.println("====end crossproducts Before optimizerFilterFunction.");
-
-        FilterFunctionOptimizer optimizerFilterFunction = new FilterFunctionOptimizer();
-        optimizerFilterFunction.setConf(getConf());
-        optimizerFilterFunction.optimize(te, null, null);
-
-        System.out.println("====before QueryUnCartesianProductOptimizer :\n" + te);
-        RdfCloudTripleStoreConnection.reportCrossProduct(te, 0);
-        System.out.println("====end crossproducts Before QueryUnCartesianProductOptimizer.");
-
-        QueryUnCartesianProductOptimizer optimizerUnCart = new QueryUnCartesianProductOptimizer();
-
-        optimizerUnCart.optimize(te, null, null);
-        System.out.println("====After QueryUnCartesianProductOptimizer:\n" + te);
-        RdfCloudTripleStoreConnection.reportCrossProduct(te, 0);
-        System.out.println("====end crossproducts After QueryUnCartesianProductOptimizer.");
-
-//        System.out.println("After 2nd optimized:\n"+te);
-//
-//        RdfCloudTripleStoreConnection.reportCrossProduct(te,0);
-//        System.out.println("====crossproducts After 2nd optimized.");
-////        // Now evaluate, but the evaluate method will run all the optimizers. 
-////        CloseableIteration<? extends BindingSet, QueryEvaluationException> iterator = (store.getConnection()).evaluate(te, null, null, true);
-////        while(iterator.hasNext()) {
-////            System.out.println("result optimized: "+iterator.next());
-////        }
+        //// // Now evaluate, but the evaluate method will run all the optimizers.
+        //// CloseableIteration<? extends BindingSet, QueryEvaluationException> iterator = (store.getConnection()).evaluate(te, null, null, true);
+        //// while(iterator.hasNext()) {
+        //// System.out.println("result optimized: "+iterator.next());
+        //// }
 
     }
-
 
     private static class CountingResultHandler implements TupleQueryResultHandler {
         private int count = 0;
@@ -235,7 +191,8 @@ public class RyaOptimizerExample {
         }
 
         @Override
-        public void startQueryResult(final List<String> arg0) throws TupleQueryResultHandlerException {}
+        public void startQueryResult(final List<String> arg0) throws TupleQueryResultHandlerException {
+        }
 
         @Override
         public void handleSolution(final BindingSet arg0) throws TupleQueryResultHandlerException {
@@ -244,12 +201,15 @@ public class RyaOptimizerExample {
         }
 
         @Override
-        public void endQueryResult() throws TupleQueryResultHandlerException {}
+        public void endQueryResult() throws TupleQueryResultHandlerException {
+        }
 
         @Override
-        public void handleBoolean(final boolean arg0) throws QueryResultHandlerException {}
+        public void handleBoolean(final boolean arg0) throws QueryResultHandlerException {
+        }
 
         @Override
-        public void handleLinks(final List<String> arg0) throws QueryResultHandlerException {}
+        public void handleLinks(final List<String> arg0) throws QueryResultHandlerException {
+        }
     }
 }
