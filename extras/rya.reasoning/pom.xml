@@ -24,7 +24,7 @@ under the License.
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya.extras</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <artifactId>rya.reasoning</artifactId>
@@ -57,7 +57,8 @@ under the License.
         <dependency>
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-minicluster</artifactId>
-            <version>${accumulo.version}</version>
+            <!-- TODO: RYA-193 -->
+            <scope>compile</scope>
         </dependency>
 
         <dependency>

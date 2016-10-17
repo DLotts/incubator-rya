@@ -20,6 +20,9 @@ package org.apache.rya.indexing.pcj.fluo.app.observers;
 
 import static org.apache.rya.indexing.pcj.fluo.app.IncrementalUpdateConstants.NODEID_BS_DELIM;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.log4j.Logger;
 import org.apache.rya.indexing.pcj.fluo.app.export.IncrementalResultExporter;
 import org.apache.rya.indexing.pcj.fluo.app.export.IncrementalResultExporter.ResultExportException;
@@ -35,23 +38,30 @@ import org.apache.rya.indexing.pcj.storage.accumulo.VisibilityBindingSetStringCo
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSet;
-
-import io.fluo.api.data.Bytes;
-import io.fluo.api.data.Column;
-import io.fluo.api.types.Encoder;
-import io.fluo.api.types.StringEncoder;
-import io.fluo.api.types.TypedObserver;
-import io.fluo.api.types.TypedTransactionBase;
+import org.apache.fluo.api.client.TransactionBase;
+import org.apache.fluo.api.data.Bytes;
+import org.apache.fluo.api.data.Column;
+import org.apache.fluo.api.observer.AbstractObserver;
+import org.apache.rya.accumulo.utils.VisibilitySimplifier;
 
 /**
  * Performs incremental result exporting to the configured destinations.
  */
-public class QueryResultObserver extends TypedObserver {
+public class QueryResultObserver extends AbstractObserver {
     private static final Logger log = Logger.getLogger(QueryResultObserver.class);
 
     private static final FluoQueryMetadataDAO QUERY_DAO = new FluoQueryMetadataDAO();
-    private static final Encoder ENCODER = new StringEncoder();
     private static final VisibilityBindingSetStringConverter CONVERTER = new VisibilityBindingSetStringConverter();
+
+    /**
+     * Simplifies Visibility expressions prior to exporting PCJ results.
+     */
+    private static final VisibilitySimplifier SIMPLIFIER = new VisibilitySimplifier();
+
+    /**
+     * We expect to see the same expressions a lot, so we cache the simplified forms.
+     */
+    private final Map<String, String> simplifiedVisibilities = new HashMap<>();
 
     /**
      * Builders for each type of result exporter we support.
@@ -93,18 +103,31 @@ public class QueryResultObserver extends TypedObserver {
     }
 
     @Override
-    public void process(final TypedTransactionBase tx, final Bytes row, final Column col) {
+    public void process(final TransactionBase tx, final Bytes brow, final Column col) {
+        final String row = brow.toString();
+        
         // Read the SPARQL query and it Binding Set from the row id.
-        final String[] queryAndBindingSet = ENCODER.decodeString(row).split(NODEID_BS_DELIM);
+        final String[] queryAndBindingSet = row.split(NODEID_BS_DELIM);
         final String queryId = queryAndBindingSet[0];
-        final String bindingSetString = ENCODER.decodeString(tx.get(row, col));
+        final String bindingSetString = tx.gets(row, col);
 
         // Fetch the query's Variable Order from the Fluo table.
         final QueryMetadata queryMetadata = QUERY_DAO.readQueryMetadata(tx, queryId);
         final VariableOrder varOrder = queryMetadata.getVariableOrder();
 
+        // Create the result that will be exported.
+        final VisibilityBindingSet result = CONVERTER.convert(bindingSetString, varOrder);
+
+        // Simplify the result's visibilities.
+        final String visibility = result.getVisibility();
+        if(!simplifiedVisibilities.containsKey(visibility)) {
+            final String simplified = SIMPLIFIER.simplify( visibility );
+            simplifiedVisibilities.put(visibility, simplified);
+        }
+
+        result.setVisibility( simplifiedVisibilities.get(visibility) );
+
         // Export the result using each of the provided exporters.
-        final VisibilityBindingSet result = (VisibilityBindingSet) CONVERTER.convert(bindingSetString, varOrder);
         for(final IncrementalResultExporter exporter : exporters) {
             try {
                 exporter.export(tx, queryId, result);

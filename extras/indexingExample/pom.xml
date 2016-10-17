@@ -23,7 +23,7 @@ under the License.
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya.extras</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <artifactId>rya.indexing.example</artifactId>
@@ -59,20 +59,17 @@ under the License.
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-core</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-accumulo-distributed-runtime</artifactId>
-        </dependency>
         
         <dependency>
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-minicluster</artifactId>
-            <version>${accumulo.version}</version>
+            <!-- Note: accumulo-minicluster is normally used for testing purposes
+                 But we are using it for an example in this project -->
+            <scope>compile</scope>
         </dependency>
         
         <dependency>
-            <groupId>io.fluo</groupId>
+            <groupId>org.apache.fluo</groupId>
             <artifactId>fluo-mini</artifactId>
         </dependency>
         

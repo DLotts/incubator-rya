@@ -53,21 +53,21 @@ import com.beust.jcommander.internal.Lists;
 import com.google.common.io.Files;
 
 import info.aduna.iteration.CloseableIteration;
-import io.fluo.api.client.FluoAdmin;
-import io.fluo.api.client.FluoAdmin.AlreadyInitializedException;
-import io.fluo.api.client.FluoAdmin.TableExistsException;
-import io.fluo.api.client.FluoFactory;
-import io.fluo.api.config.FluoConfiguration;
-import io.fluo.api.config.ObserverConfiguration;
-import io.fluo.api.mini.MiniFluo;
-import mvm.rya.accumulo.AccumuloRdfConfiguration;
-import mvm.rya.api.client.Install.InstallConfiguration;
-import mvm.rya.api.client.RyaClient;
-import mvm.rya.api.client.accumulo.AccumuloConnectionDetails;
-import mvm.rya.api.client.accumulo.AccumuloRyaClientFactory;
-import mvm.rya.indexing.accumulo.ConfigUtils;
-import mvm.rya.indexing.external.PrecomputedJoinIndexerConfig;
-import mvm.rya.sail.config.RyaSailFactory;
+import org.apache.fluo.api.client.FluoAdmin;
+import org.apache.fluo.api.client.FluoAdmin.AlreadyInitializedException;
+import org.apache.fluo.api.client.FluoAdmin.TableExistsException;
+import org.apache.fluo.api.client.FluoFactory;
+import org.apache.fluo.api.config.FluoConfiguration;
+import org.apache.fluo.api.config.ObserverSpecification;
+import org.apache.fluo.api.mini.MiniFluo;
+import org.apache.rya.accumulo.AccumuloRdfConfiguration;
+import org.apache.rya.api.client.Install.InstallConfiguration;
+import org.apache.rya.api.client.RyaClient;
+import org.apache.rya.api.client.accumulo.AccumuloConnectionDetails;
+import org.apache.rya.api.client.accumulo.AccumuloRyaClientFactory;
+import org.apache.rya.indexing.accumulo.ConfigUtils;
+import org.apache.rya.indexing.external.PrecomputedJoinIndexerConfig;
+import org.apache.rya.sail.config.RyaSailFactory;
 
 /**
  * Demonstrates how a {@link RyaClient} may be used to interact with an instance
@@ -242,17 +242,14 @@ public class RyaClientExample {
 
     private static MiniFluo makeMiniFluo(final String username, final String password, final String instanceName, final String zookeepers, final String fluoAppName) throws AlreadyInitializedException, TableExistsException {
         // Setup the observers that will be used by the Fluo PCJ Application.
-        final List<ObserverConfiguration> observers = new ArrayList<>();
-        observers.add(new ObserverConfiguration(TripleObserver.class.getName()));
-        observers.add(new ObserverConfiguration(StatementPatternObserver.class.getName()));
-        observers.add(new ObserverConfiguration(JoinObserver.class.getName()));
-        observers.add(new ObserverConfiguration(FilterObserver.class.getName()));
+        final List<ObserverSpecification> observers = new ArrayList<>();
+        observers.add(new ObserverSpecification(TripleObserver.class.getName()));
+        observers.add(new ObserverSpecification(StatementPatternObserver.class.getName()));
+        observers.add(new ObserverSpecification(JoinObserver.class.getName()));
+        observers.add(new ObserverSpecification(FilterObserver.class.getName()));
 
         // Provide export parameters child test classes may provide to the
         // export observer.
-        final ObserverConfiguration exportObserverConfig = new ObserverConfiguration(
-                QueryResultObserver.class.getName());
-
         final HashMap<String, String> params = new HashMap<>();
         final RyaExportParameters ryaParams = new RyaExportParameters(params);
         ryaParams.setExportToRya(true);
@@ -262,7 +259,8 @@ public class RyaClientExample {
         ryaParams.setExporterPassword(password);
         ryaParams.setRyaInstanceName(fluoAppName);
 
-        exportObserverConfig.setParameters(params);
+        final ObserverSpecification exportObserverConfig = new ObserverSpecification(
+                QueryResultObserver.class.getName(), params);
         observers.add(exportObserverConfig);
 
         // Configure how the mini fluo will run.
@@ -280,7 +278,7 @@ public class RyaClientExample {
         config.addObservers(observers);
 
         FluoFactory.newAdmin(config).initialize(
-                new FluoAdmin.InitOpts().setClearTable(true).setClearZookeeper(true) );
+                new FluoAdmin.InitializationOptions().setClearTable(true).setClearZookeeper(true) );
         return FluoFactory.newMiniFluo(config);
     }
 }

@@ -43,13 +43,13 @@ import org.openrdf.repository.sail.SailRepository;
 import org.openrdf.repository.sail.SailRepositoryConnection;
 import org.openrdf.sail.Sail;
 
-import mvm.rya.api.RdfCloudTripleStoreConfiguration;
-import mvm.rya.indexing.accumulo.ConfigUtils;
-import mvm.rya.indexing.accumulo.geo.GeoConstants;
-import mvm.rya.mongodb.MongoDBRdfConfiguration;
-import mvm.rya.rdftriplestore.RdfCloudTripleStore;
-import mvm.rya.rdftriplestore.inference.InferenceEngineException;
-import mvm.rya.sail.config.RyaSailFactory;
+import org.apache.rya.api.RdfCloudTripleStoreConfiguration;
+import org.apache.rya.indexing.GeoConstants;
+import org.apache.rya.indexing.accumulo.ConfigUtils;
+import org.apache.rya.mongodb.MongoDBRdfConfiguration;
+import org.apache.rya.rdftriplestore.RdfCloudTripleStore;
+import org.apache.rya.rdftriplestore.inference.InferenceEngineException;
+import org.apache.rya.sail.config.RyaSailFactory;
 
 public class MongoRyaDirectExample {
     private static final Logger log = Logger.getLogger(MongoRyaDirectExample.class);
@@ -83,11 +83,13 @@ public class MongoRyaDirectExample {
             testAddAndDelete(conn);
             testAddAndDeleteNoContext(conn);
             testAddNamespaces(conn);
-            testAddPointAndWithinSearch(conn);
+//            testAddPointAndWithinSearch(conn);
             testAddAndFreeTextSearchWithPCJ(conn);
-            // to test out inference, set inference to true in the conf
+           //  to test out inference, set inference to true in the conf
             if (USE_INFER){
             	testInfer(conn, sail);
+            	testPropertyChainInference(conn, sail);
+            	testPropertyChainInferenceAltRepresentation(conn, sail);
             }
 
             log.info("TIME: " + (System.currentTimeMillis() - start) / 1000.);
@@ -98,60 +100,60 @@ public class MongoRyaDirectExample {
         }
     }
 
-    private static void testAddPointAndWithinSearch(SailRepositoryConnection conn) throws Exception {
-
-        String update = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
-                + "INSERT DATA { " //
-                + "  <urn:feature> a geo:Feature ; " //
-                + "    geo:hasGeometry [ " //
-                + "      a geo:Point ; " //
-                + "      geo:asWKT \"Point(-77.03524 38.889468)\"^^geo:wktLiteral "//
-                + "    ] . " //
-                + "}";
-
-        Update u = conn.prepareUpdate(QueryLanguage.SPARQL, update);
-        u.execute();
-
-        String queryString;
-        TupleQuery tupleQuery;
-        CountingResultHandler tupleHandler;
-
-        // ring containing point
-        queryString = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
-                + "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>  "//
-                + "SELECT ?feature ?point ?wkt " //
-                + "{" //
-                + "  ?feature a geo:Feature . "//
-                + "  ?feature geo:hasGeometry ?point . "//
-                + "  ?point a geo:Point . "//
-                + "  ?point geo:asWKT ?wkt . "//
-                + "  FILTER(geof:sfWithin(?wkt, \"POLYGON((-78 39, -77 39, -77 38, -78 38, -78 39))\"^^geo:wktLiteral)) " //
-                + "}";//
-        tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryString);
-
-        tupleHandler = new CountingResultHandler();
-        tupleQuery.evaluate(tupleHandler);
-        log.info("Result count : " + tupleHandler.getCount());
-        Validate.isTrue(tupleHandler.getCount() >= 1); // may see points from during previous runs
-
-        // ring outside point
-        queryString = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
-                + "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>  "//
-                + "SELECT ?feature ?point ?wkt " //
-                + "{" //
-                + "  ?feature a geo:Feature . "//
-                + "  ?feature geo:hasGeometry ?point . "//
-                + "  ?point a geo:Point . "//
-                + "  ?point geo:asWKT ?wkt . "//
-                + "  FILTER(geof:sfWithin(?wkt, \"POLYGON((-77 39, -76 39, -76 38, -77 38, -77 39))\"^^geo:wktLiteral)) " //
-                + "}";//
-        tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryString);
-
-        tupleHandler = new CountingResultHandler();
-        tupleQuery.evaluate(tupleHandler);
-        log.info("Result count : " + tupleHandler.getCount());
-        Validate.isTrue(tupleHandler.getCount() == 0);
-    }
+//    private static void testAddPointAndWithinSearch(SailRepositoryConnection conn) throws Exception {
+//
+//        String update = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
+//                + "INSERT DATA { " //
+//                + "  <urn:feature> a geo:Feature ; " //
+//                + "    geo:hasGeometry [ " //
+//                + "      a geo:Point ; " //
+//                + "      geo:asWKT \"Point(-77.03524 38.889468)\"^^geo:wktLiteral "//
+//                + "    ] . " //
+//                + "}";
+//
+//        Update u = conn.prepareUpdate(QueryLanguage.SPARQL, update);
+//        u.execute();
+//
+//        String queryString;
+//        TupleQuery tupleQuery;
+//        CountingResultHandler tupleHandler;
+//
+//        // ring containing point
+//        queryString = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
+//                + "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>  "//
+//                + "SELECT ?feature ?point ?wkt " //
+//                + "{" //
+//                + "  ?feature a geo:Feature . "//
+//                + "  ?feature geo:hasGeometry ?point . "//
+//                + "  ?point a geo:Point . "//
+//                + "  ?point geo:asWKT ?wkt . "//
+//                + "  FILTER(geof:sfWithin(?wkt, \"POLYGON((-78 39, -77 39, -77 38, -78 38, -78 39))\"^^geo:wktLiteral)) " //
+//                + "}";//
+//        tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryString);
+//
+//        tupleHandler = new CountingResultHandler();
+//        tupleQuery.evaluate(tupleHandler);
+//        log.info("Result count : " + tupleHandler.getCount());
+//        Validate.isTrue(tupleHandler.getCount() >= 1); // may see points from during previous runs
+//
+//        // ring outside point
+//        queryString = "PREFIX geo: <http://www.opengis.net/ont/geosparql#>  "//
+//                + "PREFIX geof: <http://www.opengis.net/def/function/geosparql/>  "//
+//                + "SELECT ?feature ?point ?wkt " //
+//                + "{" //
+//                + "  ?feature a geo:Feature . "//
+//                + "  ?feature geo:hasGeometry ?point . "//
+//                + "  ?point a geo:Point . "//
+//                + "  ?point geo:asWKT ?wkt . "//
+//                + "  FILTER(geof:sfWithin(?wkt, \"POLYGON((-77 39, -76 39, -76 38, -77 38, -77 39))\"^^geo:wktLiteral)) " //
+//                + "}";//
+//        tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryString);
+//
+//        tupleHandler = new CountingResultHandler();
+//        tupleQuery.evaluate(tupleHandler);
+//        log.info("Result count : " + tupleHandler.getCount());
+//        Validate.isTrue(tupleHandler.getCount() == 0);
+//    }
 
     private static void closeQuietly(SailRepository repository) {
         if (repository != null) {
@@ -270,7 +272,7 @@ public class MongoRyaDirectExample {
         conf.set(MongoDBRdfConfiguration.MONGO_DB_NAME, MONGO_DB);
         conf.set(MongoDBRdfConfiguration.MONGO_COLLECTION_PREFIX, MONGO_COLL_PREFIX);
         conf.set(ConfigUtils.GEO_PREDICATES_LIST, "http://www.opengis.net/ont/geosparql#asWKT");
-        conf.set(ConfigUtils.USE_GEO, "true");
+//        conf.set(ConfigUtils.USE_GEO, "true");
         conf.set(ConfigUtils.USE_FREETEXT, "true");
         conf.setTablePrefix(MONGO_COLL_PREFIX);
         conf.set(ConfigUtils.GEO_PREDICATES_LIST, GeoConstants.GEO_AS_WKT.stringValue());
@@ -281,49 +283,155 @@ public class MongoRyaDirectExample {
     }
 
 
-
     public static void testAddAndDelete(SailRepositoryConnection conn) throws MalformedQueryException, RepositoryException,
-            UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException {
+    UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException {
 
-        // Add data
-        String query = "INSERT DATA\n"//
-                + "{ GRAPH <http://updated/test> {\n"//
-                + "  <http://acme.com/people/Mike> " //
-                + "       <http://acme.com/actions/likes> \"A new book\" ;\n"//
-                + "       <http://acme.com/actions/likes> \"Avocados\" .\n" + "} }";
+    	// Add data
+    	String query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <http://acme.com/people/Mike> " //
+    			+ "       <http://acme.com/actions/likes> \"A new book\" ;\n"//
+    			+ "       <http://acme.com/actions/likes> \"Avocados\" .\n" + "} }";
 
-        log.info("Performing Query");
+    	log.info("Performing Query");
 
-        Update update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
-        update.execute();
+    	Update update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
 
-         query = "select ?p ?o { GRAPH <http://updated/test> {<http://acme.com/people/Mike> ?p ?o . }}";
-         CountingResultHandler resultHandler = new CountingResultHandler();
-         TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
-         tupleQuery.evaluate(resultHandler);
-         log.info("Result count : " + resultHandler.getCount());
-        
-         Validate.isTrue(resultHandler.getCount() == 2);
-        
-         resultHandler.resetCount();
-        
-         // Delete Data
-         query = "DELETE DATA\n" //
-         + "{ GRAPH <http://updated/test> {\n"
-         + "  <http://acme.com/people/Mike> <http://acme.com/actions/likes> \"A new book\" ;\n"
-         + "   <http://acme.com/actions/likes> \"Avocados\" .\n" + "}}";
-        
-         update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
-         update.execute();
-        
-         query = "select ?p ?o { GRAPH <http://updated/test> {<http://acme.com/people/Mike> ?p ?o . }}";
-         tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
-         tupleQuery.evaluate(resultHandler);
-         log.info("Result count : " + resultHandler.getCount());
-        
-         Validate.isTrue(resultHandler.getCount() == 0);
+    	query = "select ?p ?o { GRAPH <http://updated/test> {<http://acme.com/people/Mike> ?p ?o . }}";
+    	CountingResultHandler resultHandler = new CountingResultHandler();
+    	TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+    	Validate.isTrue(resultHandler.getCount() == 2);
+
+    	resultHandler.resetCount();
+
+    	// Delete Data
+    	query = "DELETE DATA\n" //
+    			+ "{ GRAPH <http://updated/test> {\n"
+    			+ "  <http://acme.com/people/Mike> <http://acme.com/actions/likes> \"A new book\" ;\n"
+    			+ "   <http://acme.com/actions/likes> \"Avocados\" .\n" + "}}";
+
+    	update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+
+    	query = "select ?p ?o { GRAPH <http://updated/test> {<http://acme.com/people/Mike> ?p ?o . }}";
+    	tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+    	Validate.isTrue(resultHandler.getCount() == 0);
     }
 
+    
+    public static void testPropertyChainInferenceAltRepresentation(SailRepositoryConnection conn, Sail sail) throws MalformedQueryException, RepositoryException,
+    UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException, InferenceEngineException {
+
+    	// Add data
+    	String query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <urn:jenGreatGranMother> <urn:Motherof> <urn:jenGranMother> . "
+    			+ "  <urn:jenGranMother> <urn:isChildOf> <urn:jenGreatGranMother> . "
+    			+ "  <urn:jenGranMother> <urn:Motherof> <urn:jenMother> . " 
+    			+ "  <urn:jenMother> <urn:isChildOf> <urn:jenGranMother> . "
+    			+ " <urn:jenMother> <urn:Motherof> <urn:jen> . "
+    			+ "  <urn:jen> <urn:isChildOf> <urn:jenMother> . "
+    			+ " <urn:jen> <urn:Motherof> <urn:jenDaughter> .  }}";
+
+    	log.info("Performing Query");
+
+    	Update update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+
+    	query = "select ?p { GRAPH <http://updated/test> {?s <urn:Motherof>/<urn:Motherof> ?p}}";
+    	CountingResultHandler resultHandler = new CountingResultHandler();
+    	TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+
+    	// try adding a property chain and querying for it
+    	query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <urn:greatMother> owl:propertyChainAxiom <urn:12342>  . " + 
+    			" <urn:12342> <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> _:node1atjakcvbx15023 . " + 
+    			" _:node1atjakcvbx15023 <http://www.w3.org/2002/07/owl#inverseOf> <urn:isChildOf> . " + 
+    			" <urn:12342> <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> _:node1atjakcvbx15123 . " + 
+       			" _:node1atjakcvbx15123 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> . " + 
+    			" _:node1atjakcvbx15123 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> <urn:MotherOf> .  }}";
+    	update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+    	((RdfCloudTripleStore) sail).getInferenceEngine().refreshGraph();
+
+    	resultHandler.resetCount();
+    	query = "select ?x { GRAPH <http://updated/test> {<urn:jenGreatGranMother> <urn:greatMother> ?x}}";
+    	resultHandler = new CountingResultHandler();
+    	tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+    }
+    
+    public static void testPropertyChainInference(SailRepositoryConnection conn, Sail sail) throws MalformedQueryException, RepositoryException,
+    UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException, InferenceEngineException {
+
+    	// Add data
+    	String query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <urn:paulGreatGrandfather> <urn:father> <urn:paulGrandfather> . "
+    			+ "  <urn:paulGrandfather> <urn:father> <urn:paulFather> . " + 
+    			" <urn:paulFather> <urn:father> <urn:paul> . " + 
+    			" <urn:paul> <urn:father> <urn:paulSon> .  }}";
+
+    	log.info("Performing Query");
+
+    	Update update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+
+    	query = "select ?p { GRAPH <http://updated/test> {<urn:paulGreatGrandfather> <urn:father>/<urn:father> ?p}}";
+    	CountingResultHandler resultHandler = new CountingResultHandler();
+    	TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+
+    	// try adding a property chain and querying for it
+    	query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <urn:greatGrandfather> owl:propertyChainAxiom <urn:1234>  . " + 
+    			" <urn:1234> <http://www.w3.org/2000/10/swap/list#length> 3 . " + 
+    			" <urn:1234> <http://www.w3.org/2000/10/swap/list#index> (0 <urn:father>) . " + 
+    			" <urn:1234> <http://www.w3.org/2000/10/swap/list#index> (1 <urn:father>) . " + 
+    			" <urn:1234> <http://www.w3.org/2000/10/swap/list#index> (2 <urn:father>) .  }}";
+    	update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+    	query = "INSERT DATA\n"//
+    			+ "{ GRAPH <http://updated/test> {\n"//
+    			+ "  <urn:grandfather> owl:propertyChainAxiom <urn:12344>  . " + 
+    			" <urn:12344> <http://www.w3.org/2000/10/swap/list#length> 2 . " + 
+    			" <urn:12344> <http://www.w3.org/2000/10/swap/list#index> (0 <urn:father>) . " + 
+    			" <urn:12344> <http://www.w3.org/2000/10/swap/list#index> (1 <urn:father>) .  }}";
+    	update = conn.prepareUpdate(QueryLanguage.SPARQL, query);
+    	update.execute();
+    	((RdfCloudTripleStore) sail).getInferenceEngine().refreshGraph();
+
+    	resultHandler.resetCount();
+    	query = "select ?p { GRAPH <http://updated/test> {<urn:paulGreatGrandfather> <urn:greatGrandfather> ?p}}";
+    	resultHandler = new CountingResultHandler();
+    	tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+    	resultHandler.resetCount();
+    	query = "select ?s ?p { GRAPH <http://updated/test> {?s <urn:grandfather> ?p}}";
+    	resultHandler = new CountingResultHandler();
+    	tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, query);
+    	tupleQuery.evaluate(resultHandler);
+    	log.info("Result count : " + resultHandler.getCount());
+
+    }
     
     public static void testInfer(SailRepositoryConnection conn, Sail sail) throws MalformedQueryException, RepositoryException, 
     UpdateExecutionException, QueryEvaluationException, TupleQueryResultHandlerException, InferenceEngineException {
@@ -422,6 +530,7 @@ public class MongoRyaDirectExample {
         @Override
         public void handleSolution(BindingSet arg0) throws TupleQueryResultHandlerException {
             count++;
+            System.out.println(arg0);
         }
 
         @Override

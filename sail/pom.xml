@@ -23,7 +23,7 @@ under the License.
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya-project</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <artifactId>rya.sail</artifactId>
@@ -54,8 +54,8 @@ under the License.
         </dependency>
 
         <dependency>
-            <groupId>com.tinkerpop.blueprints</groupId>
-            <artifactId>blueprints-core</artifactId>
+            <groupId>org.apache.tinkerpop</groupId>
+            <artifactId>tinkergraph-gremlin</artifactId>
         </dependency>
 
         <dependency>
@@ -92,9 +92,7 @@ under the License.
                         <excludes>
                             <!-- RDF data Files -->
                             <exclude>**/*.trig</exclude>
-                            <exclude>**/*.owl</exclude>
                             <exclude>**/*.nt</exclude>
-
                             <!-- Services Files -->
                             <exclude>**/resources/META-INF/services/**</exclude>
                         </excludes>

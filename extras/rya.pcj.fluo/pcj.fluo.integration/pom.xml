@@ -15,7 +15,7 @@
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya.pcj.fluo.parent</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -44,7 +44,7 @@
         </dependency>
         <!-- Testing dependencies. -->
         <dependency>
-            <groupId>io.fluo</groupId>
+            <groupId>org.apache.fluo</groupId>
             <artifactId>fluo-mini</artifactId>
             <scope>test</scope>
         </dependency>
@@ -54,7 +54,7 @@
             <scope>test</scope>
         </dependency>
          <dependency>
-            <groupId>io.fluo</groupId>
+            <groupId>org.apache.fluo</groupId>
             <artifactId>fluo-api</artifactId>
         </dependency>
     </dependencies>

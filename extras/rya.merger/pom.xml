@@ -24,7 +24,7 @@ under the License.
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya.extras</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <artifactId>rya.merger</artifactId>
@@ -102,13 +102,11 @@ under the License.
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.4.3</version>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
-            <version>1.4.3</version>
         </dependency>
 
         <dependency>
@@ -166,6 +164,12 @@ under the License.
             <artifactId>twitter4j-stream</artifactId>
             <version>4.0.1</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.accumulo</groupId>
+            <artifactId>accumulo-minicluster</artifactId>
+            <!-- TODO: RYA-194 -->
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -176,7 +180,7 @@ under the License.
                     <artifactId>apache-rat-plugin</artifactId>
                     <configuration>
                         <excludes>
-                            Accumulo data Files
+                            <!-- Accumulo data Files -->
                             <exclude>**/*.rf</exclude>
                         </excludes>
                     </configuration>
@@ -184,14 +188,6 @@ under the License.
             </plugins>
         </pluginManagement>
         <plugins>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.0.2</version>
-                <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
-                </configuration>
-            </plugin>
 
             <!--
             <plugin>
@@ -199,7 +195,7 @@ under the License.
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>mvm.rya.accumulo.mr.merge.MergeTool</mainClass>
+                            <mainClass>org.apache.rya.accumulo.mr.merge.MergeTool</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -226,7 +222,7 @@ under the License.
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
-                                        <!--<Main-Class>mvm.rya.accumulo.mr.merge.MergeTool</Main-Class>-->
+                                        <!--<Main-Class>org.apache.rya.accumulo.mr.merge.MergeTool</Main-Class>-->
                                     </manifestEntries>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
@@ -284,7 +280,7 @@ under the License.
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib</classpathPrefix>
                             <!--Removing main-class from manifest so hadoop command will be able to call multiple main classes-->
-                            <!--<mainClass>mvm.rya.accumulo.mr.merge.MergeTool</mainClass>-->
+                            <!--<mainClass>org.apache.rya.accumulo.mr.merge.MergeTool</mainClass>-->
                         </manifest>
                         <manifestEntries>
                             <Built-By></Built-By>
@@ -303,7 +299,7 @@ under the License.
                 <executions>
                     <execution>
                         <id>copy-resource-bin</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -318,7 +314,7 @@ under the License.
                     </execution>
                     <execution>
                         <id>copy-resource-config</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -333,7 +329,7 @@ under the License.
                     </execution>
                     <execution>
                         <id>copy-resource-lib</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -351,7 +347,7 @@ under the License.
                     </execution>
                     <execution>
                         <id>copy-resource-jar</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -374,7 +370,7 @@ under the License.
                     </execution>
                     <execution>
                         <id>copy-resource-readme</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -405,7 +401,7 @@ under the License.
                 <executions>
                     <execution>
                         <id>build-zip</id>
-                        <phase>install</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
@@ -429,7 +425,7 @@ under the License.
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>mvm.rya.accumulo.mr.merge.MergeTool</mainClass>
+                            <mainClass>org.apache.rya.accumulo.mr.merge.MergeTool</mainClass>
                             <systemProperties>
                                 <systemProperty>
                                     <key>log4j.configuration</key>
@@ -448,7 +444,7 @@ under the License.
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>mvm.rya.accumulo.mr.merge.CopyTool</mainClass>
+                            <mainClass>org.apache.rya.accumulo.mr.merge.CopyTool</mainClass>
                             <systemProperties>
                                 <systemProperty>
                                     <key>log4j.configuration</key>

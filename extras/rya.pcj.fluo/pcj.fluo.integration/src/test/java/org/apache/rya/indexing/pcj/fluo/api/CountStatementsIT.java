@@ -29,15 +29,15 @@ import org.junit.Test;
 
 import com.google.common.base.Optional;
 
-import io.fluo.api.client.FluoAdmin;
-import io.fluo.api.client.FluoAdmin.AlreadyInitializedException;
-import io.fluo.api.client.FluoAdmin.TableExistsException;
-import io.fluo.api.client.FluoFactory;
-import io.fluo.api.config.FluoConfiguration;
-import io.fluo.api.config.ObserverConfiguration;
-import io.fluo.api.mini.MiniFluo;
-import mvm.rya.api.domain.RyaStatement;
-import mvm.rya.api.domain.RyaURI;
+import org.apache.fluo.api.client.FluoAdmin;
+import org.apache.fluo.api.client.FluoAdmin.AlreadyInitializedException;
+import org.apache.fluo.api.client.FluoAdmin.TableExistsException;
+import org.apache.fluo.api.client.FluoFactory;
+import org.apache.fluo.api.config.FluoConfiguration;
+import org.apache.fluo.api.config.ObserverSpecification;
+import org.apache.fluo.api.mini.MiniFluo;
+import org.apache.rya.api.domain.RyaStatement;
+import org.apache.rya.api.domain.RyaURI;
 
 /**
  * Tests the methods of {@link CountStatements}.
@@ -53,7 +53,7 @@ public class CountStatementsIT extends ITBase {
     @Override
     protected MiniFluo startMiniFluo() throws AlreadyInitializedException, TableExistsException {
         // Setup the observers that will be used by the Fluo PCJ Application.
-        final List<ObserverConfiguration> observers = new ArrayList<>();
+        final List<ObserverSpecification> observers = new ArrayList<>();
 
         // Configure how the mini fluo will run.
         final FluoConfiguration config = new FluoConfiguration();
@@ -64,13 +64,13 @@ public class CountStatementsIT extends ITBase {
         config.setInstanceZookeepers(zookeepers + "/fluo");
         config.setAccumuloZookeepers(zookeepers);
 
-        config.setApplicationName(appName);
-        config.setAccumuloTable("fluo" + appName);
+        config.setApplicationName(FLUO_APP_NAME);
+        config.setAccumuloTable("fluo" + FLUO_APP_NAME);
 
         config.addObservers(observers);
 
         FluoFactory.newAdmin(config).initialize(
-                new FluoAdmin.InitOpts().setClearTable(true).setClearZookeeper(true) );
+                new FluoAdmin.InitializationOptions().setClearTable(true).setClearZookeeper(true) );
         final MiniFluo miniFluo = FluoFactory.newMiniFluo(config);
         return miniFluo;
     }

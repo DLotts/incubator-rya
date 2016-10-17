@@ -26,7 +26,7 @@
     <parent>
         <groupId>org.apache.rya</groupId>
         <artifactId>rya.extras</artifactId>
-        <version>3.2.10-SNAPSHOT</version>
+        <version>3.2.10-incubating-SNAPSHOT</version>
     </parent>
 
     <artifactId>rya.console</artifactId>
@@ -84,7 +84,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>io.fluo</groupId>
+            <groupId>org.apache.fluo</groupId>
             <artifactId>fluo-mini</artifactId>
             <scope>test</scope>
         </dependency>
@@ -97,6 +97,19 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <exclude>spring-shell.log</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <!-- Automatically place Apache 2 license headers at the top of all of the project's Java files.
                  Rat runs during the 'validate' lifecycle step, so it will fail the build before this one 
@@ -143,6 +156,21 @@
                                     <mainClass>org.springframework.shell.Bootstrap</mainClass>
                                 </transformer>
                             </transformers>
+
+                            <!--
+                                Shading signed JARs will fail without this.
+                                http://stackoverflow.com/questions/999489/invalid-signature-file-when-attempting-to-run-a-jar
+                            -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>

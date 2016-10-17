@@ -45,8 +45,8 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 
-import io.fluo.api.client.FluoClient;
-import mvm.rya.rdftriplestore.RyaSailRepository;
+import org.apache.fluo.api.client.FluoClient;
+import org.apache.rya.rdftriplestore.RyaSailRepository;
 
 /**
  * A command that creates a creates a new PCJ in the Fluo app and loads historic

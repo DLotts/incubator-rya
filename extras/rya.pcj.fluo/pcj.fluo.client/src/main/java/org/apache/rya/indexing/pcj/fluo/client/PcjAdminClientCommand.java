@@ -22,8 +22,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 import org.apache.accumulo.core.client.Connector;
 
-import io.fluo.api.client.FluoClient;
-import mvm.rya.rdftriplestore.RyaSailRepository;
+import org.apache.fluo.api.client.FluoClient;
+import org.apache.rya.rdftriplestore.RyaSailRepository;
 
 /**
  * A command that may be executed by the {@link PcjAdminClient}.
