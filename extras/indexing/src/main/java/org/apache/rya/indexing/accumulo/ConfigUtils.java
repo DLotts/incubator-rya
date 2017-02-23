@@ -427,6 +427,7 @@ public class ConfigUtils {
         return conf.getBoolean(USE_PCJ_UPDATER_INDEX, false);
     }
 
+
     /**
      * @return The name of the Fluo Application this instance of RYA is using to
      *         incrementally update PCJs.
@@ -436,9 +437,11 @@ public class ConfigUtils {
         return Optional.fromNullable(conf.get(FLUO_APP_NAME));
     }
 
+
     public static boolean getUseMongo(final Configuration conf) {
         return conf.getBoolean(USE_MONGO, false);
     }
+
 
     public static void setIndexers(final RdfCloudTripleStoreConfiguration conf) {
 
@@ -452,6 +455,7 @@ public class ConfigUtils {
                 indexList.add(MongoFreeTextIndexer.class.getName());
                 useFilterIndex = true;
             }
+
             if (getUseEntity(conf)) {
                 indexList.add(MongoEntityIndexer.class.getName());
                 optimizers.add(EntityIndexOptimizer.class.getName());
@@ -494,7 +498,21 @@ public class ConfigUtils {
             optimizers.add(StatementMetadataOptimizer.class.getName());
         }
 
-        conf.setStrings(AccumuloRdfConfiguration.CONF_ADDITIONAL_INDEXERS, indexList.toArray(new String[] {}));
-        conf.setStrings(RdfCloudTripleStoreConfiguration.CONF_OPTIMIZERS, optimizers.toArray(new String[] {}));
+        final String[] existingIndexers = conf.getStrings(AccumuloRdfConfiguration.CONF_ADDITIONAL_INDEXERS);
+        if(existingIndexers != null ) {
+            for(final String idx : existingIndexers) {
+                indexList.add(idx);
+            }
+        }
+
+        final String[] existingOptimizers = conf.getStrings(RdfCloudTripleStoreConfiguration.CONF_OPTIMIZERS);
+        if(existingOptimizers != null ) {
+            for(final String opt : existingOptimizers) {
+                optimizers.add(opt);
+            }
+        }
+
+        conf.setStrings(AccumuloRdfConfiguration.CONF_ADDITIONAL_INDEXERS, indexList.toArray(new String[]{}));
+        conf.setStrings(RdfCloudTripleStoreConfiguration.CONF_OPTIMIZERS, optimizers.toArray(new String[]{}));
     }
 }
