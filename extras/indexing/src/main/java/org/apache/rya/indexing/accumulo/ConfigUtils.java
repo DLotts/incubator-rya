@@ -191,7 +191,7 @@ public class ConfigUtils {
      * null. Future, get table prefix from RyaDetails -- the Rya instance name
      * -- also getting info from the RyaDetails should happen within
      * RyaSailFactory and not ConfigUtils.
-     * 
+     *
      * @param conf
      *            Rya configuration map where it extracts the prefix (instance
      *            name)
@@ -219,7 +219,7 @@ public class ConfigUtils {
 
     /**
      * Used for indexing statements about date & time instances and intervals.
-     * 
+     *
      * @param conf
      * @return Set of predicate URI's whose objects should be date time
      *         literals.
