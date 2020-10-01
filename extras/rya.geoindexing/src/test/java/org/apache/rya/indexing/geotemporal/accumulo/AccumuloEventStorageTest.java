@@ -25,20 +25,21 @@ import static org.junit.Assert.assertTrue;
 import java.util.Optional;
 
 import org.apache.rya.accumulo.AccumuloITBase;
-import org.apache.rya.api.client.Install;
-import org.apache.rya.api.client.Install.InstallConfiguration;
-import org.apache.rya.api.client.RyaClient;
-import org.apache.rya.api.client.accumulo.AccumuloConnectionDetails;
-import org.apache.rya.api.client.accumulo.AccumuloRyaClientFactory;
+import org.apache.rya.accumulo.AccumuloRdfConfiguration;
 import org.apache.rya.api.domain.RyaURI;
+import org.apache.rya.indexing.OptionalConfigUtils;
 import org.apache.rya.indexing.TemporalInstant;
 import org.apache.rya.indexing.TemporalInstantRfc3339;
+import org.apache.rya.indexing.accumulo.ConfigUtils;
 import org.apache.rya.indexing.geotemporal.model.Event;
 import org.apache.rya.indexing.geotemporal.storage.EventStorage;
 import org.apache.rya.indexing.geotemporal.storage.EventStorage.EventAlreadyExistsException;
 import org.apache.rya.indexing.geotemporal.storage.EventStorage.EventStorageException;
 import org.joda.time.DateTime;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.openrdf.sail.SailException;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
@@ -46,181 +47,185 @@ import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.PrecisionModel;
 
 /**
- * Integration tests the methods of {@link AccumuloEventStorage}.
- * This is independent of the Rya client, so need to set that up. No SPO,POS,OSP
+ * Integration tests the methods of {@link AccumuloEventStorage}. This is
+ * independent of the Rya client, so need to set that up. No SPO,POS,OSP
  */
-public class AIT extends AccumuloITBase {
+public class AccumuloEventStorageTest extends AccumuloITBase {
 
-    private static final String RYA_INSTANCE_NAME = "testInstance";
-    private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
+	private static final String RYA_INSTANCE_NAME = "testInstance";
+	private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
+	//private Sail sail;
+	private AccumuloRdfConfiguration ryaConf;
 
-    public void setup() throws Exception {
-        final String instanceName = RYA_INSTANCE_NAME;
-        final InstallConfiguration installConfig = InstallConfiguration.builder() //
-                        .setEnableTableHashPrefix(false)//
-                        .setEnableEntityCentricIndex(false)//
-                        .setEnableFreeTextIndex(false)//
-                        .setEnableTemporalIndex(false)//
-                        .setEnablePcjIndex(false)//
-                        .setEnableGeoIndex(false)//
-                        .setFluoPcjAppName("fluo_app_name")//
-                        .build();
+	@Before
+	public void setup() throws Exception {
+		ryaConf = new AccumuloRdfConfiguration();
+		ryaConf.setTablePrefix(RYA_INSTANCE_NAME);
+		ryaConf.set(ConfigUtils.CLOUDBASE_USER, super.getUsername());
+		ryaConf.set(ConfigUtils.CLOUDBASE_PASSWORD, super.getPassword());
+		ryaConf.set(ConfigUtils.CLOUDBASE_ZOOKEEPERS, super.getZookeepers());
+		ryaConf.set(ConfigUtils.CLOUDBASE_INSTANCE, super.getInstanceName());
+		ryaConf.set(OptionalConfigUtils.USE_GEO, "false");
+		ryaConf.set(OptionalConfigUtils.USE_GEOTEMPORAL, "true");
+		//this.sail = GeoRyaSailFactory.getInstance(ryaConf);
+	}
+	@After
+	public void shutdown() throws SailException {
+		//this.sail.shutDown();
+	}
+	/**
+	 * create an event then get it back by subject. (works!)
+	 * @throws Exception
+	 */
+	@Test
+	public void create_and_get() throws Exception {
+		// setup();
 
-        final AccumuloConnectionDetails connectionDetails = new AccumuloConnectionDetails(getUsername(), getPassword().toCharArray(), getInstanceName(), getZookeepers());
+		final Geometry geo = GF.createPoint(new Coordinate(10, 10));
+		final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+		// An Event that will be stored.
+		final Event event = Event.builder().setSubject(new RyaURI("urn:event/001")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-        final RyaClient ryaClient = AccumuloRyaClientFactory.build(connectionDetails, getConnector());
-        final Install install = ryaClient.getInstall();
-        install.install(instanceName, installConfig);
+		// Create it.
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
+		storage.create(event);
 
-    }
+		// Get it.
+		final Optional<Event> storedEvent = storage.get(new RyaURI("urn:event/001"));
 
-    @Test
-    public void create_and_get() throws Exception {
-        setup();
+		// Verify the correct value was returned.
+		assertTrue("Should find a value.", storedEvent.isPresent());
+		assertEquals("Should find this value.", event, storedEvent.get());
+	}
+	/**
+	 * Verifies error is thrown when duplicate key is attempted to be created.
+	 * @throws Exception
+	 */
+	@Test
+	public void can_not_create_with_same_subject() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
 
-        final Geometry geo = GF.createPoint(new Coordinate(10, 10));
-        final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
-        // An Event that will be stored.
-        final Event event = Event.builder()
-                .setSubject(new RyaURI("urn:event/001"))
-                .setGeometry(geo)
-                .setTemporalInstant(instant)
-                .build();
+		final Geometry geo = GF.createPoint(new Coordinate(10, 10));
+		final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
 
-        // Create it.
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        storage.create(event);
+		// An Event that will be stored.
+		final Event event = Event.builder().setSubject(new RyaURI("urn:event/001")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-        // Get it.
-        final Optional<Event> storedEvent = storage.get(new RyaURI("urn:event/001"));
+		// Create it.
+		// final EventStorage storage = new
+		// MongoEventStorage(super.getMongoClient(), RYA_INSTANCE_NAME);
+		storage.create(event);
 
-        // Verify the correct value was returned.
-        assertEquals(event, storedEvent.get());
-    }
+		// Try to create it again. This will fail.
+		boolean failed = false;
+		try {
+			storage.create(event);
+		} catch (final EventAlreadyExistsException e) {
+			failed = true;
+		}
+		assertTrue("Should have failed to create duplicate key, but it did not.", failed);
+	}
 
-    @Test
-    public void can_not_create_with_same_subject() throws Exception {
-        final Geometry geo = GF.createPoint(new Coordinate(10, 10));
-        final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+	@Test
+	public void get_noneExisting() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
+		
+		// Get an event that hasn't been created.
+		final Optional<Event> storedEvent = storage.get(new RyaURI("urn:event/000"));
 
-        // An Event that will be stored.
-        final Event event = Event.builder()
-                .setSubject(new RyaURI("urn:event/001"))
-                .setGeometry(geo)
-                .setTemporalInstant(instant)
-                .build();
+		// Verify nothing was returned.
+		assertFalse(storedEvent.isPresent());
+	}
 
-        // Create it.
-        // final EventStorage storage = new MongoEventStorage(super.getMongoClient(), RYA_INSTANCE_NAME);
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        storage.create(event);
+	@Test
+	public void delete() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
 
-        // Try to create it again. This will fail.
-        boolean failed = false;
-        try {
-            storage.create(event);
-        } catch(final EventAlreadyExistsException e) {
-            failed = true;
-        }
-        assertTrue(failed);
-    }
+		final Geometry geo = GF.createPoint(new Coordinate(10, 10));
+		final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+		// An Event that will be stored.
+		final Event event = Event.builder().setSubject(new RyaURI("urn:event/002")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-    @Test
-    public void get_noneExisting() throws Exception {
-        // Get a Type that hasn't been created.
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        final Optional<Event> storedEvent = storage.get(new RyaURI("urn:event/000"));
+		// Create it.
+		storage.create(event);
 
-        // Verify nothing was returned.
-        assertFalse(storedEvent.isPresent());
-    }
+		// Delete it.
+		final boolean deleted = storage.delete(new RyaURI("urn:event/002"));
 
-    @Test
-    public void delete() throws Exception {
-        final Geometry geo = GF.createPoint(new Coordinate(10, 10));
-        final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+		// Verify a document was deleted.
+		assertTrue(deleted);
+		// Get it.
+		final Optional<Event> storedEvent = storage.get(new RyaURI("urn:event/002"));
 
-        // An Event that will be stored.
-        final Event event = Event.builder()
-                .setSubject(new RyaURI("urn:event/002"))
-                .setGeometry(geo)
-                .setTemporalInstant(instant)
-                .build();
+		// Verify the value is gone.
+		assertFalse("Should be no value.", storedEvent.isPresent());
+	}
 
-        // Create it.
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        storage.create(event);
+	@Test
+	public void delete_nonExisting() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
 
-        // Delete it.
-        final boolean deleted = storage.delete( new RyaURI("urn:event/002") );
+		// Delete an Event that has not been created.
+		final boolean deleted = storage.delete(new RyaURI("urn:event/003"));
 
-        // Verify a document was deleted.
-        assertTrue( deleted );
-    }
+		// Verify no document was deleted.
+		assertFalse(deleted);
+	}
 
-    @Test
-    public void delete_nonExisting() throws Exception {
-        // Delete an Event that has not been created.
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        final boolean deleted = storage.delete( new RyaURI("urn:event/003") );
+	@Test
+	public void update() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
 
-        // Verify no document was deleted.
-        assertFalse( deleted );
-    }
+		final Geometry geo = GF.createPoint(new Coordinate(10, 10));
+		TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
 
-    @Test
-    public void update() throws Exception {
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        final Geometry geo = GF.createPoint(new Coordinate(10, 10));
-        TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+		// An Event that will be stored.
+		final Event event = Event.builder().setSubject(new RyaURI("urn:event/004")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-        // An Event that will be stored.
-        final Event event = Event.builder()
-                .setSubject(new RyaURI("urn:event/004"))
-                .setGeometry(geo)
-                .setTemporalInstant(instant)
-                .build();
+		storage.create(event);
 
-        storage.create(event);
+		// Show Alice was stored.
+		Optional<Event> latest = storage.get(new RyaURI("urn:event/004"));
+		assertEquals(event, latest.get());
 
-        // Show Alice was stored.
-        Optional<Event> latest = storage.get(new RyaURI("urn:event/004"));
-        assertEquals(event, latest.get());
+		instant = new TemporalInstantRfc3339(DateTime.now());
+		// Change time of the event.
+		final Event updated = Event.builder(event).setTemporalInstant(instant).build();
 
-        instant = new TemporalInstantRfc3339(DateTime.now());
-        // Change Alice's eye color to brown.
-        final Event updated = Event.builder(event)
-                .setTemporalInstant(instant)
-                .build();
+		storage.update(event, updated);
 
-        storage.update(event, updated);
+		// Fetch the Alice object and ensure it has the new value.
+		latest = storage.get(new RyaURI("urn:event/004"));
 
-        // Fetch the Alice object and ensure it has the new value.
-        latest = storage.get(new RyaURI("urn:event/004"));
+		assertEquals(updated, latest.get());
+	}
 
-        assertEquals(updated, latest.get());
-    }
+	@Test(expected = EventStorageException.class)
+	public void update_differentSubjects() throws Exception {
+		final AccumuloEventStorage storage = new AccumuloEventStorage(); 
+		storage.init(ryaConf);
 
-    @Test(expected = EventStorageException.class)
-    public void update_differentSubjects() throws Exception {
-        final EventStorage storage = new AccumuloEventStorage(getConnector(), RYA_INSTANCE_NAME);
-        final Geometry geo = GF.createPoint(new Coordinate(10, 10));
-        final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
+		final Geometry geo = GF.createPoint(new Coordinate(10, 10));
+		final TemporalInstant instant = new TemporalInstantRfc3339(DateTime.now());
 
-        // Two objects that do not have the same Subjects.
-        final Event old = Event.builder()
-                .setSubject(new RyaURI("urn:event/001"))
-                .setGeometry(geo) 
-                .setTemporalInstant(instant)
-                .build();
+		// Two objects that do not have the same Subjects.
+		final Event old = Event.builder().setSubject(new RyaURI("urn:event/001")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-        final Event updated = Event.builder()
-                .setSubject(new RyaURI("urn:event/002"))
-                .setGeometry(geo)
-                .setTemporalInstant(instant)
-                .build();
+		final Event updated = Event.builder().setSubject(new RyaURI("urn:event/002")).setGeometry(geo)
+				.setTemporalInstant(instant).build();
 
-        // The update will fail.
-        storage.update(old, updated);
-    }
+		// The update will fail.
+		storage.update(old, updated);
+	}
 }

@@ -44,11 +44,20 @@ public class AccumuloITBase {
 
     @BeforeClass
     public static void killLoudLogs() {
-        Logger.getLogger(ClientCnxn.class).setLevel(Level.ERROR);
+//    	Logger.getRootLogger().setLevel(Level.ALL);
+//        Logger.getLogger(ClientCnxn.class).setLevel(Level.ERROR);
+        org.apache.log4j.BasicConfigurator.configure();
+        Level level = Level.WARN;
+        System.out.println("Root logging is " + level);
+        Logger.getRootLogger().setLevel(level);
+        level = Level.ERROR;
+        System.out.println("ClientCnxn logging is " + level);
+        Logger.getLogger(ClientCnxn.class).setLevel(level);
     }
 
     @Before
     public void initCluster() throws IOException, InterruptedException, AccumuloException, AccumuloSecurityException {
+		System.out.println("AccumuloITBASE @Before running!");
         cluster = new MiniAccumuloClusterInstance();
         cluster.startMiniAccumulo();
     }

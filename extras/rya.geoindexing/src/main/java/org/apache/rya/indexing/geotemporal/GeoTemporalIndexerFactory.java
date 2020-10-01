@@ -20,6 +20,7 @@ package org.apache.rya.indexing.geotemporal;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.rya.indexing.accumulo.ConfigUtils;
+import org.apache.rya.indexing.geotemporal.accumulo.AccumuloGeoTemporalIndexer;
 import org.apache.rya.indexing.geotemporal.mongo.MongoGeoTemporalIndexer;
 import org.apache.rya.mongodb.MongoDBRdfConfiguration;
 import org.apache.rya.mongodb.MongoSecondaryIndex;
@@ -46,8 +47,10 @@ public class GeoTemporalIndexerFactory {
             index.init();
             return index;
         } else {
-            //TODO: add Accumulo here.
-            return null;
+        	AccumuloGeoTemporalIndexer index = new AccumuloGeoTemporalIndexer();
+            index.setConf(conf);
+            index.init();
+            return index;
         }
     }
 }

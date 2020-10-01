@@ -128,11 +128,11 @@ public class GeoMesaGeoIndexer extends AbstractAccumuloIndexer implements GeoInd
 
     private static final String FEATURE_NAME = "RDF";
 
-    private static final String SUBJECT_ATTRIBUTE = "S";
-    private static final String PREDICATE_ATTRIBUTE = "P";
-    private static final String OBJECT_ATTRIBUTE = "O";
-    private static final String CONTEXT_ATTRIBUTE = "C";
-    private static final String GEOMETRY_ATTRIBUTE = Constants.SF_PROPERTY_GEOMETRY;
+    public static final String SUBJECT_ATTRIBUTE = "S";
+    public static final String PREDICATE_ATTRIBUTE = "P";
+    public static final String OBJECT_ATTRIBUTE = "O";
+    public static final String CONTEXT_ATTRIBUTE = "C";
+    public static final String GEOMETRY_ATTRIBUTE = Constants.SF_PROPERTY_GEOMETRY;
 
     private Set<URI> validPredicates;
     private Configuration conf;
@@ -180,7 +180,7 @@ public class GeoMesaGeoIndexer extends AbstractAccumuloIndexer implements GeoInd
         featureStore = (FeatureStore<SimpleFeatureType, SimpleFeature>) featureSource;
     }
 
-    private static DataStore createDataStore(final Configuration conf) throws IOException {
+    public static DataStore createDataStore(final Configuration conf) throws IOException {
         // get the configuration parameters
         final Instance instance = ConfigUtils.getInstance(conf);
         final boolean useMock = instance instanceof MockInstance;
@@ -209,7 +209,7 @@ public class GeoMesaGeoIndexer extends AbstractAccumuloIndexer implements GeoInd
         return DataStoreFinder.getDataStore(params);
     }
 
-    private static SimpleFeatureType getStatementFeatureType(final DataStore dataStore) throws IOException, SchemaException {
+    public static SimpleFeatureType getStatementFeatureType(final DataStore dataStore) throws IOException, SchemaException {
         SimpleFeatureType featureType;
 
         final String[] datastoreFeatures = dataStore.getTypeNames();

@@ -62,6 +62,7 @@ public class RyaDetails implements Serializable {
      */
     private final PCJIndexDetails pcjDetails;
     private final TemporalIndexDetails temporalDetails;
+    private final GeoTemporalIndexDetails geoTemporalDetails;
     private final FreeTextIndexDetails freeTextDetails;
 
     // Statistics Details.
@@ -80,6 +81,7 @@ public class RyaDetails implements Serializable {
 //RYA-215            final GeoIndexDetails geoDetails,
             final PCJIndexDetails pcjDetails,
             final TemporalIndexDetails temporalDetails,
+            final GeoTemporalIndexDetails geoTemporalDetails,
             final FreeTextIndexDetails freeTextDetails,
             final ProspectorDetails prospectorDetails,
             final JoinSelectivityDetails joinSelectivityDetails) {
@@ -90,6 +92,7 @@ public class RyaDetails implements Serializable {
       //RYA-215        this.geoDetails = requireNonNull(geoDetails);
         this.pcjDetails = requireNonNull(pcjDetails);
         this.temporalDetails = requireNonNull(temporalDetails);
+        this.geoTemporalDetails = requireNonNull(geoTemporalDetails);
         this.freeTextDetails = requireNonNull(freeTextDetails);
         this.prospectorDetails = requireNonNull(prospectorDetails);
         this.joinSelectivityDetails = requireNonNull(joinSelectivityDetails);
@@ -132,6 +135,14 @@ public class RyaDetails implements Serializable {
 /*    public GeoIndexDetails getGeoIndexDetails() {
         return geoDetails;
     }*/
+
+    /**
+     * @return Information about the instance's GeoTemporal Index.
+     *
+     */
+    public GeoTemporalIndexDetails getGeoTemporalIndexDetails() {
+        return geoTemporalDetails;
+    }
 
     /**
      * @return Information about the instance's Precomputed Join Index.
@@ -177,6 +188,7 @@ public class RyaDetails implements Serializable {
               //RYA-215                geoDetails,
                 pcjDetails,
                 temporalDetails,
+                geoTemporalDetails,
                 freeTextDetails,
                 prospectorDetails,
                 joinSelectivityDetails);
@@ -195,6 +207,7 @@ public class RyaDetails implements Serializable {
                   //RYA-215                    Objects.equals(geoDetails, details.geoDetails) &&
                     Objects.equals(pcjDetails, details.pcjDetails) &&
                     Objects.equals(temporalDetails, details.temporalDetails) &&
+                    Objects.equals(geoTemporalDetails, details.geoTemporalDetails) &&
                     Objects.equals(freeTextDetails, details.freeTextDetails) &&
                     Objects.equals(prospectorDetails, details.prospectorDetails) &&
                     Objects.equals(joinSelectivityDetails, details.joinSelectivityDetails);
@@ -233,6 +246,7 @@ public class RyaDetails implements Serializable {
         private GeoIndexDetails geoDetails;
         private PCJIndexDetails.Builder pcjIndexDetailsBuilder;
         private TemporalIndexDetails temporalDetails;
+        private GeoTemporalIndexDetails geoTemporalDetails;
         private FreeTextIndexDetails freeTextDetails;
 
         // Statistics Details.
@@ -259,6 +273,7 @@ public class RyaDetails implements Serializable {
           //RYA-215            geoDetails = details.geoDetails;
             pcjIndexDetailsBuilder = PCJIndexDetails.builder( details.pcjDetails );
             temporalDetails = details.temporalDetails;
+            geoTemporalDetails = details.geoTemporalDetails;
             freeTextDetails = details.freeTextDetails;
             prospectorDetails = details.prospectorDetails;
             joinSelectivityDetails = details.joinSelectivityDetails;
@@ -329,6 +344,14 @@ public class RyaDetails implements Serializable {
             this.temporalDetails = temporalDetails;
             return this;
         }
+        /**
+         * @param geoTemporalDetails - Information about the instance's GeoTemporal Index.
+         * @return This {@link Builder} so that method invocations may be chained.
+         */
+        public Builder setGeoTemporalIndexDetails(@Nullable final GeoTemporalIndexDetails geoTemporalDetails) {
+            this.geoTemporalDetails = geoTemporalDetails;
+            return this;
+        }
 
         /**
          * @param freeTextDetails - Information about the instance's Free Text Index.
@@ -387,6 +410,7 @@ public class RyaDetails implements Serializable {
                   //RYA-215                    geoDetails,
                     pcjIndexDetailsBuilder.build(),
                     temporalDetails,
+                    geoTemporalDetails,
                     freeTextDetails,
                     prospectorDetails,
                     joinSelectivityDetails);
@@ -431,6 +455,49 @@ public class RyaDetails implements Serializable {
             }
             if(obj instanceof GeoIndexDetails) {
                 final GeoIndexDetails details = (GeoIndexDetails) obj;
+                return enabled == details.enabled;
+            }
+            return false;
+        }
+    }
+    /**
+     * Details about a Rya instance's Temporal and Geospatial Index.
+     */
+    @Immutable
+    @DefaultAnnotation(NonNull.class)
+    public static class GeoTemporalIndexDetails implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final boolean enabled;
+
+        /**
+         * Constructs an instance of {@link GeoTemporalIndexDetails}.
+         *
+         * @param enabled - Whether or not a GeoTemporal Index will be maintained by the Rya instance.
+         */
+        public GeoTemporalIndexDetails(final boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * @return Whether or not a GeoTemporal Index will be maintained by the Rya instance.
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash( enabled );
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if(this == obj) {
+                return true;
+            }
+            if(obj instanceof GeoTemporalIndexDetails) {
+                final GeoTemporalIndexDetails details = (GeoTemporalIndexDetails) obj;
                 return enabled == details.enabled;
             }
             return false;

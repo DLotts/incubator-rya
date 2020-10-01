@@ -29,6 +29,7 @@ import org.apache.rya.api.instance.RyaDetails;
 import org.apache.rya.indexing.accumulo.ConfigUtils;
 import org.apache.rya.indexing.accumulo.geo.GeoMesaGeoIndexer;
 import org.apache.rya.indexing.geotemporal.GeoTemporalOptimizer;
+import org.apache.rya.indexing.geotemporal.accumulo.AccumuloGeoTemporalIndexer;
 import org.apache.rya.indexing.geotemporal.mongo.MongoGeoTemporalIndexer;
 import org.apache.rya.indexing.mongodb.geo.MongoGeoIndexer;
 import org.openrdf.model.URI;
@@ -117,7 +118,7 @@ public class OptionalConfigUtils extends ConfigUtils {
                 indexList.add(MongoGeoTemporalIndexer.class.getName());
                 optimizers.add(GeoTemporalOptimizer.class.getName());
             }
-        } else {
+        } else {  //Accumulo
             if (getUseGeo(conf)) {
                 if (geoIndexerType == null) {
                     // Default to GeoMesaGeoIndexer if not specified
@@ -126,6 +127,10 @@ public class OptionalConfigUtils extends ConfigUtils {
                     indexList.add(geoIndexerType.getGeoIndexerClass().getName());
                 }
                 useFilterIndex = true;
+            }
+            if (getUseGeoTemporal(conf)) {
+                indexList.add(AccumuloGeoTemporalIndexer.class.getName());
+                optimizers.add(GeoTemporalOptimizer.class.getName());
             }
         }
 
